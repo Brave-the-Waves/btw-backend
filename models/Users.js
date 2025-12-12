@@ -14,6 +14,9 @@ const userSchema = new mongoose.Schema({
   // Amount raised by this user (donations attributed to them)
   amountRaised: { type: Number, default: 0 },
 
+  // User Bio / Story
+  bio: { type: String, default: '' },
+
   // Relationship: Which team do they belong to?
   team: { 
     type: mongoose.Schema.Types.ObjectId, 

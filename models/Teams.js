@@ -26,7 +26,9 @@ const teamSchema = new mongoose.Schema({
     type: String,
     enum: ['Community', 'Corporate', 'Survivor', 'Student'], //subject to change in the future, maybe there are no such things such as divisions
     default: 'Community'
-  }
+  },
+
+  description: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Team', teamSchema);

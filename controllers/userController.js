@@ -39,12 +39,66 @@ const getMyStatus = asyncHandler(async (req, res) => {
     email: user.email,
     hasPaid: user.hasPaid,
     amountRaised: user.amountRaised,
+    bio: user.bio,
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
       memberCount: user.team.members.length
     } : null
   });
+});
+
+// @desc    Update User Profile
+// @route   PUT /api/users/me
+// @access  Private
+const updateUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  user.bio = req.body.bio || user.bio;
+  // Allow name update if needed, but usually synced from Auth0
+  if (req.body.name) user.name = req.body.name;
+
+  const updatedUser = await user.save();
+
+  res.json({
+    _id: updatedUser._id,
+    name: updatedUser.name,
+    email: updatedUser.email,
+    bio: updatedUser.bio
+  });
+});
+
+// @desc    Get Leaderboard (Top Participants)
+// @route   GET /api/users/leaderboard
+// @access  Public
+const getUserLeaderboard = asyncHandler(async (req, res) => {
+  const users = await User.find({})
+    .sort({ amountRaised: -1 })
+    .limit(10)
+    .select('name amountRaised bio team')
+    .populate('team', 'name');
+  
+  res.json(users);
+});
+
+// @desc    Search Users
+// @route   GET /api/users/search
+// @access  Public
+const searchUsers = asyncHandler(async (req, res) => {
+  const keyword = req.query.q ? {
+    name: {
+      $regex: req.query.q,
+      $options: 'i'
+    }
+  } : {};
+
+  const users = await User.find({ ...keyword }).select('name bio amountRaised team').populate('team', 'name');
+  res.json(users);
 });
 
 // @desc    Get My Status (Dashboard Info)
@@ -63,6 +117,7 @@ const getSelectedUser = asyncHandler(async (req, res) => {
     name: user.name,
     amountRaised: user.amountRaised,
     email: user.email,
+    bio: user.bio,
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
@@ -74,5 +129,8 @@ const getSelectedUser = asyncHandler(async (req, res) => {
 module.exports = {
   syncUser,
   getMyStatus,
-  getSelectedUser
+  getSelectedUser,
+  updateUserProfile,
+  getUserLeaderboard,
+  searchUsers
 };
