@@ -45,7 +45,25 @@ const getTeamById = asyncHandler(async (req, res) => {
     res.status(200).json(team);
 });
 
+// @desc    Get team members
+// @route   GET /api/public/teams/:name/members
+// @access  Public
+const getTeamMembers = asyncHandler(async (req, res) => {
+    const team = await Team.findOne({ name: req.params.name }).populate({
+        path: 'members',
+        select: 'name amountRaised'
+    });
+
+    if (!team) {
+        res.status(404);
+        throw new Error('Team not found');
+    }
+
+    res.status(200).json(team.members);
+});
+
 module.exports = {
     getAllTeams,
-    getTeamById
+    getTeamById,
+    getTeamMembers
 };
