@@ -80,28 +80,6 @@ const joinTeam = asyncHandler(async (req, res) => {
   res.json({ success: true, teamName: team.name });
 });
 
-// @desc    Get My Status (Dashboard Info)
-// @route   GET /api/registrations/me
-// @access  Private
-const getMyStatus = asyncHandler(async (req, res) => {
-  // Get user and populate their team info
-  const user = await User.findOne({ auth0Id: req.auth.payload.sub }).populate('team');
-  
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
-
-  res.json({
-    hasPaid: user.hasPaid,
-    team: user.team ? {
-      name: user.team.name,
-      inviteCode: user.team.inviteCode,
-      isCaptain: user.team.captain.equals(user._id),
-      memberCount: user.team.members.length
-    } : null
-  });
-});
 
 module.exports = {
   createTeam,

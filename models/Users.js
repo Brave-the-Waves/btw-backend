@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema({
   hasPaid: { type: Boolean, default: false },
   stripeCustomerId: String, // For tracking payments later
   
+  // Amount raised by this user (donations attributed to them)
+  amountRaised: { type: Number, default: 0 },
+
   // Relationship: Which team do they belong to?
   team: { 
     type: mongoose.Schema.Types.ObjectId, 
