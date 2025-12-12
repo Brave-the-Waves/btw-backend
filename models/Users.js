@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
     required: true, 
     unique: true 
   }, // The unique ID from Auth0
-  email: { type: String, required: true },
+  email: { type: String, required: false },
   name: String,
   hasPaid: { type: Boolean, default: false },
   stripeCustomerId: String, // For tracking payments later

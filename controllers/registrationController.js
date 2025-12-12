@@ -1,6 +1,6 @@
 const asyncHandler = require('express-async-handler');
-const Team = require('../models/Team');
-const User = require('../models/User');
+const Team = require('../models/Teams');
+const User = require('../models/Users');
 
 // Helper to find DB user from Auth0 Token
 const getCurrentUser = async (auth0Id) => {
@@ -12,6 +12,12 @@ const getCurrentUser = async (auth0Id) => {
 // @access  Private
 const createTeam = asyncHandler(async (req, res) => {
   const user = await getCurrentUser(req.auth.payload.sub);
+  console.log('Creating team for user:', user);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found in database. Did you sync?');
+  }
 
   // Guard: Must pay before creating a team
   if (!user.hasPaid) {
