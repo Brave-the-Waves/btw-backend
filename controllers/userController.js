@@ -7,7 +7,12 @@ const User = require('../models/Users');
 const syncUser = asyncHandler(async (req, res) => {
   // req.auth.payload contains the decoded Auth0 token data
   const {sub: auth0Id} = req.auth.payload;
-  const { email, name } = req.body;
+  
+  // Try to get email/name from Token
+  // Note: Auth0 requires custom claims to be namespaced (e.g. https://btw/email)
+  const email = req.auth.payload['https://btw/email'];
+  const name = req.auth.payload['https://btw/name'];
+
   console.log('Syncing user:', { auth0Id, email, name });
   // "Upsert": Update if exists, Create if new
   let user = await User.findOneAndUpdate(

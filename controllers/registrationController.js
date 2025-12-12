@@ -83,6 +83,5 @@ const joinTeam = asyncHandler(async (req, res) => {
 
 module.exports = {
   createTeam,
-  joinTeam,
-  getMyStatus
+  joinTeam
 };

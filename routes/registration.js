@@ -15,8 +15,4 @@ router.post('/team', checkJwt, createTeam);
 // POST /api/registrations/join
 router.post('/join', checkJwt, joinTeam);
 
-// 3. GET MY STATUS (Dashboard Info)
-// GET /api/registrations/me
-router.get('/me', checkJwt, getMyStatus);
-
 module.exports = router;
