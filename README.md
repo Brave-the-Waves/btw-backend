@@ -29,6 +29,55 @@ This API is built using a robust Node.js stack:
     *   `express-async-handler` for cleaner async error handling.
     *   `dotenv` for environment variable management.
 
+## ✨ Features
+
+### 👤 User Management
+*   **Profile Sync:** Automatically syncs user data from Auth0 upon login.
+*   **Dashboard:** Users can view their personal status, payment status, and team membership.
+*   **Profile Customization:** Users can update their bio and display name.
+*   **Public Profiles:** View detailed profiles of other participants, including their "Why I Paddle" story and fundraising progress.
+*   **User Search:** Find participants by name.
+*   **Leaderboard:** Real-time ranking of top fundraisers.
+
+### 🏆 Team Management
+*   **Team Creation:** Eligible users (who have paid registration) can create new teams.
+*   **Join via Code:** Secure team joining using unique 6-character invite codes.
+*   **Captain Controls:**
+    *   Edit team details (Name, Division, Description).
+    *   Remove members from the roster.
+    *   Disband the team.
+*   **Member Actions:** Users can leave a team if they joined by mistake.
+*   **Team Rosters:** Publicly viewable lists of all members in a team.
+*   **Team Leaderboard:** Rankings based on the total amount raised by all team members.
+*   **Team Search:** Find teams by name.
+
+## 🔌 API Endpoints
+
+### Public Routes
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/public/teams` | List all teams |
+| `GET` | `/api/public/teams/leaderboard` | Get top teams by fundraising |
+| `GET` | `/api/public/teams/search?q=...` | Search teams by name |
+| `GET` | `/api/public/teams/:name` | Get team details |
+| `GET` | `/api/public/teams/:name/members` | Get team roster |
+| `GET` | `/api/users/leaderboard` | Get top individual fundraisers |
+| `GET` | `/api/users/search?q=...` | Search users by name |
+| `GET` | `/api/users/:id` | Get specific user profile |
+
+### Protected Routes (Requires Auth Token)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/users/sync` | Sync Auth0 user to database |
+| `GET` | `/api/users/me` | Get my dashboard info |
+| `PUT` | `/api/users/me` | Update my profile (Bio, Name) |
+| `POST` | `/api/registrations/team` | Create a new team |
+| `POST` | `/api/registrations/join` | Join a team with invite code |
+| `POST` | `/api/public/teams/leave` | Leave current team |
+| `PUT` | `/api/public/teams/:id` | Update team details (Captain only) |
+| `DELETE` | `/api/public/teams/:id` | Disband team (Captain only) |
+| `DELETE` | `/api/public/teams/:id/members/:userId` | Remove member (Captain only) |
+
 ## 🚀 Getting Started
 
 Follow these steps to set up the backend locally.

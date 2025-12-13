@@ -60,7 +60,9 @@ const optionalCheckJwt = (req, res, next) => {
 };
 
 // Export mock or real based on environment variable
-const activeCheckJwt = process.env.USE_MOCK_AUTH === 'true' ? mockCheckJwt : checkJwt;
+const isMock = process.env.USE_MOCK_AUTH === 'true';
+console.log(`Auth Middleware Loaded. Mode: ${isMock ? 'MOCK (HS256)' : 'PRODUCTION (RS256)'}`);
+const activeCheckJwt = isMock ? mockCheckJwt : checkJwt;
 
 module.exports = { 
   checkJwt: activeCheckJwt,
