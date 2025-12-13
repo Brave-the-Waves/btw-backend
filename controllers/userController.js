@@ -84,7 +84,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 const getUserLeaderboard = asyncHandler(async (req, res) => {
   const users = await User.find({})
     .sort({ amountRaised: -1 })
-    .limit(10)
+    .limit(3)
     .select('name amountRaised bio team')
     .populate('team', 'name');
   
