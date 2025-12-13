@@ -1,0 +1,115 @@
+@baseUrl = http://localhost:8000/api
+
+# Generate these tokens at https://jwt.io using HS256 algorithm
+# Or grab them from your browser's Network tab after logging in
+
+# User 1: Eric Wang
+@tokenEric = REPLACE_WITH_YOUR_TOKEN
+
+# User 2: Dory Song  
+@tokenDory = REPLACE_WITH_YOUR_TOKEN
+
+# User 3: Geoffrey Wang
+@tokenGeoffrey = REPLACE_WITH_YOUR_TOKEN
+
+# User 4: Allison Engo
+@tokenAllison = REPLACE_WITH_YOUR_TOKEN
+
+# Default token for testing (change as needed)
+@token = {{tokenAllison}}
+
+### -----------------------
+### PUBLIC ROUTES (No Token Needed)
+### -----------------------
+
+### 1. Get All Teams
+GET {{baseUrl}}/public/teams
+
+### 2. Get Team Leaderboard
+GET {{baseUrl}}/public/teams/leaderboard
+
+### 3. Search Teams
+GET {{baseUrl}}/public/teams/search?q=hello
+
+### 4. Get Team By Name (Replace 'MyTeamName' with a real team name)
+GET {{baseUrl}}/public/teams/MyTeamName
+
+### 5. Get Team Members (Replace 'MyTeamName' with a real team name)
+GET {{baseUrl}}/public/teams/MyTeamName/members
+
+### 6. Get User Leaderboard
+GET {{baseUrl}}/users/leaderboard
+
+### 7. Search Users
+GET {{baseUrl}}/users/search?q=John
+
+### 8. Get Specific User Profile (Replace :id with real User ID)
+GET {{baseUrl}}/users/USER_ID_HERE
+
+
+### -----------------------
+### AUTHENTICATED ROUTES (Token Required)
+### -----------------------
+# To get a token, you usually need to log in via the Frontend.
+# For testing, you can grab the 'access_token' from the Network tab in your browser
+# after logging into your app, or generate one from the Auth0 Dashboard.
+
+### 9. Sync User (Simulate Login)
+POST {{baseUrl}}/users/sync
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### 10. Get My Profile (Dashboard)
+GET {{baseUrl}}/users/me
+Authorization: Bearer {{token}}
+
+### 11. Update My Profile
+PUT {{baseUrl}}/users/me
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "bio": "I am paddling for a cause!",
+    "name": "Ericccc"
+}
+
+### 12. Create Team
+POST {{baseUrl}}/registrations/team
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "teamName": "The Wave Riders",
+    "division": "Community"
+}
+
+### 13. Join Team
+POST {{baseUrl}}/registrations/join
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "inviteCode": "INVITE_CODE_HERE"
+}
+
+### 14. Leave Team
+POST {{baseUrl}}/public/teams/leave
+Authorization: Bearer {{token}}
+
+### 15. Update Team (Captain Only) - Replace :id with Team ID
+PUT {{baseUrl}}/public/teams/TEAM_ID_HERE
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "description": "We are the champions",
+    "division": "Corporate"
+}
+
+### 16. Remove Member (Captain Only) - Replace :id (Team) and :userId (Member)
+DELETE {{baseUrl}}/public/teams/TEAM_ID_HERE/members/USER_ID_HERE
+Authorization: Bearer {{token}}
+
+### 17. Delete Team (Captain Only) - Replace :id with Team ID
+DELETE {{baseUrl}}/public/teams/TEAM_ID_HERE
+Authorization: Bearer {{token}}
