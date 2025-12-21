@@ -34,6 +34,7 @@ app.use(limiter);
 app.use('/api/users', require('./routes/users'));
 app.use('/api/registrations', require('./routes/registration'));
 app.use('/api/public/teams', require('./routes/teams'));
+app.use('/api', require('./routes/payment'));
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;

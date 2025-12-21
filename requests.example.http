@@ -119,3 +119,12 @@ Authorization: Bearer {{token}}
 ### 17. Delete Team (Captain Only) - Replace :id with Team ID
 DELETE {{baseUrl}}/public/teams/TEAM_ID_HERE
 Authorization: Bearer {{token}}
+
+### 18. Create Stripe Checkout Session (Donation)
+POST {{baseUrl}}/create-checkout-session
+Content-Type: application/json
+
+{
+    "amount": 50,
+    "currency": "cad"
+}
