@@ -7,7 +7,7 @@ const Team = require('../models/Teams');
 // @route   POST /api/create-checkout-session
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
-  const { amount, currency, paddlerId } = req.body;
+  const { amount, currency, donationId } = req.body;
 
   // Basic validation
   if (!amount || !currency) {
@@ -15,12 +15,12 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     throw new Error('Please provide amount and currency');
   }
 
-  // Optional: Verify paddler exists if provided
+  // Optional: Verify paddler exists if provided via public donationId
   let metadata = {};
-  if (paddlerId) {
-    const paddler = await User.findById(paddlerId);
+  if (donationId) {
+    const paddler = await User.findOne({ donationId });
     if (paddler) {
-      metadata.paddlerId = paddlerId;
+      metadata.donationId = donationId;
       metadata.paddlerName = paddler.name;
     }
   }
@@ -44,7 +44,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     mode: 'payment',
     success_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/cancel`,
-    metadata: metadata, // Store paddlerId here so we can retrieve it in the webhook later
+    metadata: metadata, // Store donationId here so we can retrieve it in the webhook later
   });
 
   console.log('Created Stripe Checkout Session:', session.id);
@@ -80,37 +80,39 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   // Handle the checkout.session.completed event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    
-    console.log('Payment succeeded for session:', session.id);
-    
-    // Extract metadata
-    const paddlerId = session.metadata?.paddlerId;
-    const amountPaid = session.amount_total / 100; // Convert cents to dollars
 
-    if (paddlerId) {
-      // Update the user's amountRaised
-      const user = await User.findById(paddlerId);
-      
+    console.log('Payment succeeded for session:', session.id);
+
+    // Extract metadata (ONLY donationId is supported)
+    const donationId = session.metadata?.donationId;
+    const amountPaid = (session.amount_total || 0) / 100; // Convert cents to dollars
+
+    if (!donationId) {
+      console.log('No donationId in metadata - donation not attributed to a specific user');
+    } else {
+      // Update the user's amountRaised by donationId
+      const user = await User.findOne({ donationId });
+
       if (user) {
         user.amountRaised += amountPaid;
         await user.save();
-        
+
         console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
 
         // Update the team's totalRaised if user is on a team
         if (user.team) {
           const team = await Team.findById(user.team);
-          
+
           if (team) {
             team.totalRaised += amountPaid;
             await team.save();
-            
+
             console.log(`Updated team ${team.name}'s totalRaised to $${team.totalRaised}`);
           }
         }
+      } else {
+        console.log(`No user found with donationId=${donationId}`);
       }
-    } else {
-      console.log('No paddlerId in metadata - donation not attributed to a specific user');
     }
   }
 

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { nanoid } = require('nanoid');
 
 const userSchema = new mongoose.Schema({
   auth0Id: { 
@@ -13,6 +14,9 @@ const userSchema = new mongoose.Schema({
   
   // Amount raised by this user (donations attributed to them)
   amountRaised: { type: Number, default: 0 },
+
+  // Public donation identifier (short, random) for linking donations
+  donationId: { type: String, unique: true, default: () => nanoid(8) },
 
   // User Bio / Story
   bio: { type: String, default: '' },

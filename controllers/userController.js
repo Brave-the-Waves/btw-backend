@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/Users');
+const { nanoid } = require('nanoid');
 
 // @desc    Sync User with Auth0
 // @route   POST /api/users/sync
@@ -19,7 +20,7 @@ const syncUser = asyncHandler(async (req, res) => {
     { auth0Id },
     { 
       $set: { email, name }, // Always update email/name in case they changed
-      $setOnInsert: { hasPaid: false, amountRaised: 0 } // Only set default for new users
+      $setOnInsert: { hasPaid: false, amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
     },
     { new: true, upsert: true } // Return the new doc, create if missing
   );
