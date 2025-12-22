@@ -35,12 +35,19 @@ const createTeam = asyncHandler(async (req, res) => {
   const newTeam = await Team.create({
     name: req.body.teamName,
     division: req.body.division,
+    description: req.body.description || '',
+    donationGoal: req.body.donationGoal || 0,
     captain: user._id,
     members: [user._id] // Captain is the first member
   });
 
   // Update the User to link to this team
   user.team = newTeam._id;
+
+  if (user.amountRaised) {
+    newTeam.totalRaised = user.amountRaised;
+  }
+  await newTeam.save();
   await user.save();
 
   res.json({ 
@@ -71,6 +78,9 @@ const joinTeam = asyncHandler(async (req, res) => {
 
   // Add user to team
   team.members.push(user._id);
+  if (user.amountRaised) {
+    team.totalRaised += user.amountRaised;
+  }
   await team.save();
 
   // Link user to team

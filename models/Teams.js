@@ -28,7 +28,12 @@ const teamSchema = new mongoose.Schema({
     default: 'Community'
   },
 
-  description: { type: String, default: '' }
+  description: { type: String, default: '' },
+
+  totalRaised: { type: Number, default: 0 },
+
+  donationGoal: { type: Number, default: 0 }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Team', teamSchema);

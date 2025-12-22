@@ -140,6 +140,11 @@ const removeMember = asyncHandler(async (req, res) => {
         throw new Error('Captain cannot remove themselves. Delete the team instead.');
     }
 
+    //remove their contribution to the team's totalRaised
+    if (memberToRemove.amountRaised) {
+        team.totalRaised -= memberToRemove.amountRaised;
+    }
+
     // Remove from team members array
     team.members = team.members.filter(memberId => !memberId.equals(memberToRemove._id));
     await team.save();
@@ -169,7 +174,10 @@ const leaveTeam = asyncHandler(async (req, res) => {
         throw new Error('Captain cannot leave. Delete the team or transfer captaincy.');
     }
 
-    // Remove from team members array
+    // Remove user's contribution to team's totalRaised and from team members array
+    if (user.amountRaised) {
+        team.totalRaised -= user.amountRaised;
+    }
     team.members = team.members.filter(memberId => !memberId.equals(user._id));
     await team.save();
 

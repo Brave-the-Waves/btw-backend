@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const User = require('../models/Users');
+const Team = require('../models/Teams');
 
 // @desc    Create Stripe Checkout Session
 // @route   POST /api/create-checkout-session
@@ -52,6 +53,72 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
   res.json({ url: session.url });
 });
 
+// @desc    Handle Stripe Webhook Events
+// @route   POST /api/stripe-webhook
+// @access  Public (but verified with Stripe signature)
+const stripeWebhook = asyncHandler(async (req, res) => {
+  console.log('🔔 Webhook received!');
+  
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  console.log('Webhook secret configured:', endpointSecret ? 'YES' : 'NO');
+  console.log('Stripe signature present:', sig ? 'YES' : 'NO');
+
+  let event;
+
+  try { 
+    // Verify the webhook signature
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    console.log('✅ Webhook signature verified. Event type:', event.type);
+  } catch (err) {
+    console.error('❌ Webhook signature verification failed:', err.message);
+    res.status(400);
+    throw new Error(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the checkout.session.completed event
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    
+    console.log('Payment succeeded for session:', session.id);
+    
+    // Extract metadata
+    const paddlerId = session.metadata?.paddlerId;
+    const amountPaid = session.amount_total / 100; // Convert cents to dollars
+
+    if (paddlerId) {
+      // Update the user's amountRaised
+      const user = await User.findById(paddlerId);
+      
+      if (user) {
+        user.amountRaised += amountPaid;
+        await user.save();
+        
+        console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
+
+        // Update the team's totalRaised if user is on a team
+        if (user.team) {
+          const team = await Team.findById(user.team);
+          
+          if (team) {
+            team.totalRaised += amountPaid;
+            await team.save();
+            
+            console.log(`Updated team ${team.name}'s totalRaised to $${team.totalRaised}`);
+          }
+        }
+      }
+    } else {
+      console.log('No paddlerId in metadata - donation not attributed to a specific user');
+    }
+  }
+
+  // Return a 200 response to acknowledge receipt of the event
+  res.json({ received: true });
+});
+
 module.exports = {
-  createCheckoutSession
+  createCheckoutSession,
+  stripeWebhook
 };

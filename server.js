@@ -16,6 +16,12 @@ app.use((req, res, next) => {
 });
 
 app.use(cors());
+
+// Stripe webhook route MUST come before express.json() middleware
+// because Stripe needs the raw body to verify signatures
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), require('./controllers/paymentController').stripeWebhook);
+
+// Now apply JSON parsing for all other routes
 app.use(express.json());
 
 // Rate Limiting
