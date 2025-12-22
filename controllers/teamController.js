@@ -41,7 +41,7 @@ const getTeamById = asyncHandler(async (req, res) => {
         team = team.toObject(); // Convert Mongoose doc to plain object
         delete team.inviteCode;
     }
-
+    
     res.status(200).json(team);
 });
 

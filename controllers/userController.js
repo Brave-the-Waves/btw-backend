@@ -32,8 +32,8 @@ const syncUser = asyncHandler(async (req, res) => {
 // @route   GET /api/users/me
 // @access  Private
 const getMyStatus = asyncHandler(async (req, res) => {
-  // Get user and populate their team info
-  const user = await User.findOne({ auth0Id: req.auth.payload.sub }).populate('team');
+  // Get user and populate their team info (only needed fields)
+  const user = await User.findOne({ auth0Id: req.auth.payload.sub }).populate('team', 'name captain members');
   
   if (!user) {
     res.status(404);
@@ -111,8 +111,8 @@ const searchUsers = asyncHandler(async (req, res) => {
 // @route   GET /api/users/:id
 // @access  Public
 const getSelectedUser = asyncHandler(async (req, res) => {
-  // Get user and populate their team info
-  const user = await User.findById(req.params.id).populate('team');
+  // Get user and populate their team info (only needed fields)
+  const user = await User.findById(req.params.id).populate('team', 'name captain members');
   
   if (!user) {
     res.status(404);
@@ -132,11 +132,21 @@ const getSelectedUser = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get All Users
+// @route   GET /api/users/
+// @access  Public
+const getAllUsers = asyncHandler(async (req, res) => {
+  // Populate only team name and captain for list view
+  const users = await User.find({}).select('name amountRaised team').populate('team', 'name captain');
+  res.json(users);
+});
+
 module.exports = {
   syncUser,
   getMyStatus,
   getSelectedUser,
   updateUserProfile,
   getUserLeaderboard,
-  searchUsers
+  searchUsers,
+  getAllUsers
 };

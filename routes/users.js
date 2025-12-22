@@ -7,7 +7,8 @@ const {
     getSelectedUser, 
     updateUserProfile, 
     getUserLeaderboard, 
-    searchUsers 
+    searchUsers,
+    getAllUsers
 } = require('../controllers/userController');
 
 // POST /api/users/sync
@@ -33,5 +34,9 @@ router.get('/search', searchUsers);
 // GET /api/users/:id
 // Get a specific user's profile
 router.get('/:id', getSelectedUser);
+
+// GET /api/users
+// Get all users
+router.get('/', getAllUsers);
 
 module.exports = router;
