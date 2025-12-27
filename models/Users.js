@@ -2,15 +2,13 @@ const mongoose = require('mongoose');
 const { nanoid } = require('nanoid');
 
 const userSchema = new mongoose.Schema({
-  auth0Id: { 
+  firebaseUid: { 
     type: String, 
     required: true, 
     unique: true 
-  }, // The unique ID from Auth0
+  }, // The unique ID from Firebase
   email: { type: String, required: false },
   name: String,
-  hasPaid: { type: Boolean, default: false },
-  stripeCustomerId: String, // For tracking payments later
   
   // Amount raised by this user (donations attributed to them)
   amountRaised: { type: Number, default: 0 },

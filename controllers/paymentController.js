@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const User = require('../models/Users');
 const Team = require('../models/Teams');
+const Registration = require('../models/Registration');
 
 // @desc    Create Stripe Checkout Session
 // @route   POST /api/create-checkout-session
@@ -17,6 +18,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
 
   // Optional: Verify paddler exists if provided via public donationId
   let metadata = {};
+  metadata.type = 'donation';
   if (donationId) {
     const paddler = await User.findOne({ donationId });
     if (paddler) {
@@ -33,7 +35,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
         price_data: {
           currency: currency,
           product_data: {
-            name: paddlerId ? `Donation to ${metadata.paddlerName}` : 'Donation to Brave The Waves',
+            name: donationId ? `Donation to ${metadata.paddlerName}` : 'Donation to Brave The Waves',
             description: 'Charity Event Donation',
           },
           unit_amount: Math.round(amount * 100), // Convert dollars to cents
@@ -50,6 +52,58 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
   console.log('Created Stripe Checkout Session:', session.id);
   console.log('Session url:', session.url);
   // Return the URL for the frontend to redirect to
+  res.json({ url: session.url });
+});
+
+// @desc    Create Registration Payment Checkout Session
+// @route   POST /api/create-registration-checkout
+// @access  Private (requires authentication)
+const createRegistrationCheckout = asyncHandler(async (req, res) => {
+  const firebaseUid = req.auth.payload.sub;
+  const { amount = 25, currency = 'CAD' } = req.body; // Default $25 CAD registration fee
+
+  // Find the user
+  const user = await User.findOne({ firebaseUid });
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Check if already paid
+  const registration = await Registration.findOne({ user: user._id });
+  if (registration?.hasPaid) {
+    res.status(400);
+    throw new Error('Registration fee already paid');
+  }
+
+  // Create Stripe checkout session for registration
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: currency,
+          product_data: {
+            name: 'Brave The Waves - Registration Fee',
+            description: 'Event registration payment',
+          },
+          unit_amount: Math.round(amount * 100), // Convert dollars to cents
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=success`,
+    cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=cancel`,
+    metadata: {
+      type: 'registration',
+      userId: user._id.toString(),
+      firebaseUid: user.firebaseUid,
+    },
+    customer_email: user.email,
+  });
+
+  console.log('Created Registration Checkout Session:', session.id, 'for user:', user.email);
   res.json({ url: session.url });
 });
 
@@ -83,35 +137,63 @@ const stripeWebhook = asyncHandler(async (req, res) => {
 
     console.log('Payment succeeded for session:', session.id);
 
-    // Extract metadata (ONLY donationId is supported)
-    const donationId = session.metadata?.donationId;
+    const paymentType = session.metadata?.type;
     const amountPaid = (session.amount_total || 0) / 100; // Convert cents to dollars
 
-    if (!donationId) {
-      console.log('No donationId in metadata - donation not attributed to a specific user');
-    } else {
-      // Update the user's amountRaised by donationId
-      const user = await User.findOne({ donationId });
+    // Handle REGISTRATION payment
+    if (paymentType === 'registration') {
+      const userId = session.metadata?.userId;
+      const user = await User.findById(userId);
 
       if (user) {
-        user.amountRaised += amountPaid;
-        await user.save();
+        const registration = await Registration.findOneAndUpdate(
+          { user: user._id },
+          {
+            hasPaid: true,
+            stripeCustomerId: session.customer,
+            transactionId: session.payment_intent,
+            amountPaid: amountPaid,
+            currency: session.currency?.toUpperCase(),
+          },
+          { new: true, upsert: true }
+        );
 
-        console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
-
-        // Update the team's totalRaised if user is on a team
-        if (user.team) {
-          const team = await Team.findById(user.team);
-
-          if (team) {
-            team.totalRaised += amountPaid;
-            await team.save();
-
-            console.log(`Updated team ${team.name}'s totalRaised to $${team.totalRaised}`);
-          }
-        }
+        console.log(`✅ Registration payment completed for ${user.email} - Amount: $${amountPaid}`);
+        console.log(`Registration record updated:`, registration._id);
       } else {
-        console.log(`No user found with donationId=${donationId}`);
+        console.error(`❌ Registration payment: User not found with ID ${userId}`);
+      }
+    }
+    // Handle DONATION payment
+    else {
+      const donationId = session.metadata?.donationId;
+
+      if (!donationId) {
+        console.log('No donationId in metadata - donation not attributed to a specific user');
+      } else {
+        // Update the user's amountRaised by donationId
+        const user = await User.findOne({ donationId });
+
+        if (user) {
+          user.amountRaised += amountPaid;
+          await user.save();
+
+          console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
+
+          // Update the team's totalRaised if user is on a team
+          if (user.team) {
+            const team = await Team.findById(user.team);
+
+            if (team) {
+              team.totalRaised += amountPaid;
+              await team.save();
+
+              console.log(`Updated team ${team.name}'s totalRaised to $${team.totalRaised}`);
+            }
+          }
+        } else {
+          console.log(`No user found with donationId=${donationId}`);
+        }
       }
     }
   }
@@ -122,5 +204,6 @@ const stripeWebhook = asyncHandler(async (req, res) => {
 
 module.exports = {
   createCheckoutSession,
+  createRegistrationCheckout,
   stripeWebhook
 };

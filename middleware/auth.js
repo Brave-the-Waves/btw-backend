@@ -1,70 +1,92 @@
-const { auth } = require('express-oauth2-jwt-bearer');
-const jwt = require('jsonwebtoken');
+const admin = require('firebase-admin');
 require('dotenv').config();
 
-// MOCK AUTH FOR LOCAL TESTING
-// Validates JWT tokens signed with AUTH0_SECRET (HS256)
-const mockCheckJwt = (req, res, next) => {
+// Read auth mode from env: 'production' (default) or 'emulator'
+const FIREBASE_AUTH_MODE = (process.env.FIREBASE_AUTH_MODE || 'production').toLowerCase();
+
+// Initialize Firebase Admin SDK only in non-emulator (production) mode or when credentials are present
+if (FIREBASE_AUTH_MODE !== 'emulator') {
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      }),
+    });
+    console.log('Firebase Admin SDK initialized');
+  }
+} else {
+  console.warn('FIREBASE_AUTH_MODE=emulator — skipping firebase-admin credential initialization and allowing unsigned tokens for testing');
+}
+
+// Firebase JWT verification middleware
+// Helper: decode JWT payload without verifying signature (safe only in emulator/testing)
+const decodeJwtWithoutVerification = (token) => {
+  const parts = token.split('.');
+  if (parts.length < 2) throw new Error('Invalid JWT format');
+  const payloadB64 = parts[1];
+  // base64url -> base64
+  let b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const json = Buffer.from(b64, 'base64').toString('utf8');
+  return JSON.parse(json);
+};
+
+const checkJwt = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('[MOCK] No token provided');
+    console.error('No authorization token provided');
     return res.status(401).json({ error: 'No authorization token provided' });
   }
 
   const token = authHeader.substring(7);
 
   try {
-    const decoded = jwt.verify(token, process.env.AUTH0_SECRET, {
-      audience: process.env.AUTH0_AUDIENCE,
-      issuer: process.env.AUTH0_ISSUER_BASE_URL,
-      algorithms: ['HS256']
-    });
+    if (FIREBASE_AUTH_MODE === 'emulator') {
+      // In emulator mode the emulator issues unsigned tokens for convenience.
+      // Decode without verifying signature — only allowed for local testing.
+      const decoded = decodeJwtWithoutVerification(token);
+      const uid = decoded.uid || decoded.user_id || decoded.sub || decoded.email;
+      req.auth = {
+        payload: {
+          sub: uid,
+          email: decoded.email,
+          name: decoded.name || (decoded.email ? decoded.email.split('@')[0] : undefined),
+        }
+      };
+      console.warn('Emulator auth: bypassed signature verification. Using token payload as authenticated user:', req.auth.payload.sub);
+      return next();
+    }
 
-    console.log('[MOCK] Token decoded successfully:', decoded);
-
-    req.auth = { payload: decoded };
-    console.log('[MOCK] Token verified for user:', decoded.sub);
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    console.log('Decoded Firebase token:', decodedToken);
+    // Map to existing req.auth.payload structure for compatibility
+    req.auth = {  
+      payload: {
+        sub: decodedToken.uid,
+        email: decodedToken.email,
+        name: decodedToken.name || decodedToken.email?.split('@')[0],
+      }
+    };
+    
+    console.log('Firebase token verified for user:', decodedToken.uid);
     next();
   } catch (err) {
-    console.error('[MOCK] Token Verification Failed:', err.message);
+    console.error('Firebase Token Verification Failed:', err.message);
     return res.status(401).json({ error: err.message });
   }
 };
 
-// PRODUCTION AUTH0 (RS256)
-// This middleware checks if the incoming request has a valid Auth0 Token
-const checkJwt = (req, res, next) => {
-  const jwtCheck = auth({
-    audience: process.env.AUTH0_AUDIENCE,
-    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
-    tokenSigningAlg: 'RS256'
-  });
-
-  jwtCheck(req, res, (err) => {
-    if (err) {
-      console.error('Auth0 Token Verification Failed:', err.message);
-      console.error('Expected Audience:', process.env.AUTH0_AUDIENCE);
-      console.error('Expected Issuer:', process.env.AUTH0_ISSUER_BASE_URL);
-      return res.status(err.status || 401).json({ error: err.message });
-    }
-    next();
-  });
-};
-
-const optionalCheckJwt = (req, res, next) => {
+const optionalCheckJwt = async (req, res, next) => {
   if (!req.headers.authorization) {
     return next();
   }
-  checkJwt(req, res, next);
+  await checkJwt(req, res, next);
 };
 
-// Export mock or real based on environment variable
-const isMock = process.env.USE_MOCK_AUTH === 'true';
-console.log(`Auth Middleware Loaded. Mode: ${isMock ? 'MOCK (HS256)' : 'PRODUCTION (RS256)'}`);
-const activeCheckJwt = isMock ? mockCheckJwt : checkJwt;
-
 module.exports = { 
-  checkJwt: activeCheckJwt,
+  checkJwt,
   optionalCheckJwt 
 };

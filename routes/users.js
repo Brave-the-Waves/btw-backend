@@ -12,7 +12,7 @@ const {
 } = require('../controllers/userController');
 
 // POST /api/users/sync
-// Called by frontend immediately after Auth0 login
+// Called by frontend immediately after Firebase login
 router.post('/sync', checkJwt, syncUser);
 
 // GET /api/users/me

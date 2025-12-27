@@ -1,10 +1,11 @@
 const asyncHandler = require('express-async-handler');
 const Team = require('../models/Teams');
 const User = require('../models/Users');
+const Registration = require('../models/Registration');
 
-// Helper to find DB user from Auth0 Token
-const getCurrentUser = async (auth0Id) => {
-  return await User.findOne({ auth0Id });
+// Helper to find DB user from Firebase Token
+const getCurrentUser = async (firebaseUid) => {
+  return await User.findOne({ firebaseUid });
 };
 
 // @desc    Create a Team
@@ -20,7 +21,8 @@ const createTeam = asyncHandler(async (req, res) => {
   }
 
   // Guard: Must pay before creating a team
-  if (!user.hasPaid) {
+  const registration = await Registration.findOne({ user: user._id });
+  if (!registration || !registration.hasPaid) {
     res.status(403);
     throw new Error('You must pay your registration fee before creating a team.');
   }

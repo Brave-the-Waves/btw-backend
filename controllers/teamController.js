@@ -29,7 +29,7 @@ const getTeamById = asyncHandler(async (req, res) => {
     
     // req.auth is populated by optionalCheckJwt if a valid token is present
     if (req.auth && req.auth.payload && req.auth.payload.sub) {
-        const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+        const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
         // Check if user exists and is the captain
         if (user && team.captain && team.captain.equals(user._id)) {
             isCaptain = true;
@@ -73,7 +73,7 @@ const updateTeam = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
-    const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -99,7 +99,7 @@ const deleteTeam = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
-    const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -128,7 +128,7 @@ const removeMember = asyncHandler(async (req, res) => {
         throw new Error('Team or User not found');
     }
 
-    const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -160,7 +160,7 @@ const removeMember = asyncHandler(async (req, res) => {
 // @route   POST /api/teams/leave
 // @access  Private
 const leaveTeam = asyncHandler(async (req, res) => {
-    const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
 
     if (!user || !user.team) {
         res.status(400);

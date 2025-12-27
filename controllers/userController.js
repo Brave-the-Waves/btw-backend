@@ -1,29 +1,47 @@
 const asyncHandler = require('express-async-handler');
 const User = require('../models/Users');
+const Registration = require('../models/Registration');
 const { nanoid } = require('nanoid');
 
-// @desc    Sync User with Auth0
+// @desc    Sync User with Firebase
 // @route   POST /api/users/sync
 // @access  Private
 const syncUser = asyncHandler(async (req, res) => {
-  // req.auth.payload contains the decoded Auth0 token data
-  const {sub: auth0Id} = req.auth.payload;
+  console.log('🔵 [SYNC] Endpoint hit - req.auth:', JSON.stringify(req.auth, null, 2));
   
-  // Try to get email/name from Token
-  // Note: Auth0 requires custom claims to be namespaced (e.g. https://btw/email)
-  const email = req.auth.payload['https://btw/email'];
-  const name = req.auth.payload['https://btw/name'];
+  // req.auth.payload contains the decoded Firebase token data
+  const {sub: firebaseUid} = req.auth.payload;
+  const email = req.auth.payload.email;
+  const name = req.auth.payload.name;
 
-  console.log('Syncing user:', { auth0Id, email, name });
+  if (!firebaseUid) {
+    console.error('🔴 [SYNC ERROR] No firebaseUid found in token payload');
+    res.status(400);
+    throw new Error('Missing firebaseUid in token');
+  }
+
+  console.log('🔵 [SYNC] Syncing user:', { firebaseUid, email, name });
+  
   // "Upsert": Update if exists, Create if new
   let user = await User.findOneAndUpdate(
-    { auth0Id },
+    { firebaseUid },
     { 
       $set: { email, name }, // Always update email/name in case they changed
-      $setOnInsert: { hasPaid: false, amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
+      $setOnInsert: { amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
     },
     { new: true, upsert: true } // Return the new doc, create if missing
   );
+
+  console.log('🟢 [SYNC SUCCESS] User saved:', { _id: user._id, firebaseUid: user.firebaseUid, donationId: user.donationId });
+
+  // Ensure Registration record exists for this user
+  const registration = await Registration.findOneAndUpdate(
+    { user: user._id },
+    {},
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
+
+  console.log('🟢 [SYNC SUCCESS] Registration created/updated:', { _id: registration._id, hasPaid: registration.hasPaid });
 
   res.json(user);
 });
@@ -33,17 +51,20 @@ const syncUser = asyncHandler(async (req, res) => {
 // @access  Private
 const getMyStatus = asyncHandler(async (req, res) => {
   // Get user and populate their team info (only needed fields)
-  const user = await User.findOne({ auth0Id: req.auth.payload.sub }).populate('team', 'name captain members');
+  const user = await User.findOne({ firebaseUid: req.auth.payload.sub }).populate('team', 'name captain members');
   
   if (!user) {
     res.status(404);
     throw new Error('User not found');
   }
 
+  // Get registration status
+  const registration = await Registration.findOne({ user: user._id });
+
   res.json({
     name: user.name,
     email: user.email,
-    hasPaid: user.hasPaid,
+    hasPaid: registration?.hasPaid || false,
     amountRaised: user.amountRaised,
     bio: user.bio,
     team: user.team ? {
@@ -58,7 +79,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/me
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ auth0Id: req.auth.payload.sub });
+  const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
 
   if (!user) {
     res.status(404);
