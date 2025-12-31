@@ -66,6 +66,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
     email: user.email,
     hasPaid: registration?.hasPaid || false,
     amountRaised: user.amountRaised,
+    donationId: user.donationId,
     bio: user.bio,
     team: user.team ? {
       name: user.team.name,
@@ -85,7 +86,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('User not found');
   }
-
   user.bio = req.body.bio || user.bio;
   // Allow name update if needed, but usually synced from Auth0
   if (req.body.name) user.name = req.body.name;
@@ -145,6 +145,7 @@ const getSelectedUser = asyncHandler(async (req, res) => {
     amountRaised: user.amountRaised,
     email: user.email,
     bio: user.bio,
+    donationId: user.donationId,
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
@@ -158,7 +159,7 @@ const getSelectedUser = asyncHandler(async (req, res) => {
 // @access  Public
 const getAllUsers = asyncHandler(async (req, res) => {
   // Populate only team name and captain for list view
-  const users = await User.find({}).select('name amountRaised team').populate('team', 'name captain');
+  const users = await User.find({}).select('name amountRaised team donationId').populate('team', 'name captain');
   res.json(users);
 });
 

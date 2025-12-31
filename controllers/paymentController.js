@@ -8,6 +8,7 @@ const Registration = require('../models/Registration');
 // @route   POST /api/create-checkout-session
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
+  console.log('Creating checkout session with body:', req.body);
   const { amount, currency, donationId } = req.body;
 
   // Basic validation
@@ -111,6 +112,7 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
 // @route   POST /api/stripe-webhook
 // @access  Public (but verified with Stripe signature)
 const stripeWebhook = asyncHandler(async (req, res) => {
+  console.log('------------------------------');
   console.log('🔔 Webhook received!');
   
   const sig = req.headers['stripe-signature'];
