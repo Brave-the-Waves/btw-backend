@@ -241,6 +241,40 @@ const searchTeams = asyncHandler(async (req, res) => {
     res.json(teams);
 });
 
+// @desc    Remove Team Member
+// @route   DELETE /api/teams/:id/members/:userId
+// @access  Private
+const removeTeamMember = asyncHandler(async (req, res) => {
+    const team = await Team.findById(req.params.teamId);
+    const memberToRemove = await User.findById(req.params.userId);
+
+    if (!team || !memberToRemove) {
+        res.status(404);
+        throw new Error('Team or User not found');
+    }
+
+    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+
+    if (!user || !team.captain.equals(user._id)) {
+        res.status(401);
+        throw new Error('Not authorized as team captain');
+    }
+
+    if (team.captain.equals(memberToRemove._id)) {
+        res.status(400);
+        throw new Error('Captain cannot remove themselves. Delete the team instead.');
+    }
+    
+    // Remove from team members array
+    team.members = team.members.filter(memberId => !memberId.equals(memberToRemove._id));
+    await team.save();
+    // Remove team reference from user
+    memberToRemove.team = null;
+    await memberToRemove.save();
+
+    res.json({ message: 'Member removed' });
+})
+
 module.exports = {
     getAllTeams,
     getTeamById,
