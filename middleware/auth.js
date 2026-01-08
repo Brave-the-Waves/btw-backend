@@ -48,7 +48,7 @@ const checkJwt = async (req, res, next) => {
       // In emulator mode the emulator issues unsigned tokens for convenience.
       // Decode without verifying signature — only allowed for local testing.
       const decoded = decodeJwtWithoutVerification(token);
-      const uid = decoded.uid || decoded.user_id || decoded.sub || decoded.email;
+      const uid = decoded.user_id || decoded.sub
       req.auth = {
         payload: {
           sub: uid,

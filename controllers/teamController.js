@@ -1,7 +1,10 @@
-const express = require('express');
 const Team = require('../models/Teams');
 const User = require('../models/Users');
 const asyncHandler = require('express-async-handler');
+
+// ========================================
+// PUBLIC TEAM CONTROLLERS
+// ========================================
 
 // @desc    Get all teams (public)
 // @route   GET /api/public/teams
@@ -26,7 +29,7 @@ const getTeamById = asyncHandler(async (req, res) => {
 
     // Check if the requester is the captain
     let isCaptain = false;
-    
+    console.log("req:", req);
     // req.auth is populated by optionalCheckJwt if a valid token is present
     if (req.auth && req.auth.payload && req.auth.payload.sub) {
         const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
@@ -61,6 +64,63 @@ const getTeamMembers = asyncHandler(async (req, res) => {
 
     res.status(200).json(team.members);
 });
+
+// @desc    Get Team Leaderboard
+// @route   GET /api/public/teams/leaderboard
+// @access  Public
+const getTeamLeaderboard = asyncHandler(async (req, res) => {
+    // Aggregate to sum up amountRaised from members
+    // Note: This assumes we want to calculate it on the fly.
+    // If performance becomes an issue, store totalRaised on Team model.
+    const teams = await Team.aggregate([
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'members',
+                foreignField: '_id',
+                as: 'memberDetails'
+            }
+        },
+        {
+            $addFields: {
+                totalRaised: { $sum: '$memberDetails.amountRaised' },
+                memberCount: { $size: '$members' }
+            }
+        },
+        { $sort: { totalRaised: -1 } },
+        { $limit: 10 },
+        {
+            $project: {
+                name: 1,
+                division: 1,
+                totalRaised: 1,
+                memberCount: 1,
+                description: 1
+            }
+        }
+    ]);
+
+    res.json(teams);
+});
+
+// @desc    Search Teams
+// @route   GET /api/public/teams/search
+// @access  Public
+const searchTeams = asyncHandler(async (req, res) => {
+    const keyword = req.query.q ? {
+        name: {
+            $regex: req.query.q,
+            $options: 'i'
+        }
+    } : {};
+
+    const teams = await Team.find({ ...keyword }).select('name division description members');
+    res.json(teams);
+});
+
+// ========================================
+// PRIVATE TEAM CONTROLLERS (Auth Required)
+// ========================================
 
 // @desc    Update Team (Captain Only)
 // @route   PUT /api/teams/:id
@@ -188,101 +248,16 @@ const leaveTeam = asyncHandler(async (req, res) => {
     res.json({ message: 'Left team successfully' });
 });
 
-// @desc    Get Team Leaderboard
-// @route   GET /api/public/teams/leaderboard
-// @access  Public
-const getTeamLeaderboard = asyncHandler(async (req, res) => {
-    // Aggregate to sum up amountRaised from members
-    // Note: This assumes we want to calculate it on the fly.
-    // If performance becomes an issue, store totalRaised on Team model.
-    const teams = await Team.aggregate([
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'members',
-                foreignField: '_id',
-                as: 'memberDetails'
-            }
-        },
-        {
-            $addFields: {
-                totalRaised: { $sum: '$memberDetails.amountRaised' },
-                memberCount: { $size: '$members' }
-            }
-        },
-        { $sort: { totalRaised: -1 } },
-        { $limit: 10 },
-        {
-            $project: {
-                name: 1,
-                division: 1,
-                totalRaised: 1,
-                memberCount: 1,
-                description: 1
-            }
-        }
-    ]);
-
-    res.json(teams);
-});
-
-// @desc    Search Teams
-// @route   GET /api/public/teams/search
-// @access  Public
-const searchTeams = asyncHandler(async (req, res) => {
-    const keyword = req.query.q ? {
-        name: {
-            $regex: req.query.q,
-            $options: 'i'
-        }
-    } : {};
-
-    const teams = await Team.find({ ...keyword }).select('name division description members');
-    res.json(teams);
-});
-
-// @desc    Remove Team Member
-// @route   DELETE /api/teams/:id/members/:userId
-// @access  Private
-const removeTeamMember = asyncHandler(async (req, res) => {
-    const team = await Team.findById(req.params.teamId);
-    const memberToRemove = await User.findById(req.params.userId);
-
-    if (!team || !memberToRemove) {
-        res.status(404);
-        throw new Error('Team or User not found');
-    }
-
-    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
-
-    if (!user || !team.captain.equals(user._id)) {
-        res.status(401);
-        throw new Error('Not authorized as team captain');
-    }
-
-    if (team.captain.equals(memberToRemove._id)) {
-        res.status(400);
-        throw new Error('Captain cannot remove themselves. Delete the team instead.');
-    }
-    
-    // Remove from team members array
-    team.members = team.members.filter(memberId => !memberId.equals(memberToRemove._id));
-    await team.save();
-    // Remove team reference from user
-    memberToRemove.team = null;
-    await memberToRemove.save();
-
-    res.json({ message: 'Member removed' });
-})
-
 module.exports = {
+    // Public exports
     getAllTeams,
     getTeamById,
     getTeamMembers,
+    getTeamLeaderboard,
+    searchTeams,
+    // Private exports
     updateTeam,
     deleteTeam,
     removeMember,
-    leaveTeam,
-    getTeamLeaderboard,
-    searchTeams
+    leaveTeam
 };

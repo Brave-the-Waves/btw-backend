@@ -62,6 +62,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
   const registration = await Registration.findOne({ user: user._id });
 
   res.json({
+    _id: user._id,
     name: user.name,
     email: user.email,
     hasPaid: registration?.hasPaid || false,
