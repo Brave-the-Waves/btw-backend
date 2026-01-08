@@ -32,7 +32,7 @@ const getTeamById = asyncHandler(async (req, res) => {
     console.log("req:", req);
     // req.auth is populated by optionalCheckJwt if a valid token is present
     if (req.auth && req.auth.payload && req.auth.payload.sub) {
-        const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+        const user = await User.findById(req.auth.payload.sub);
         // Check if user exists and is the captain
         if (user && team.captain && team.captain.equals(user._id)) {
             isCaptain = true;
@@ -62,7 +62,9 @@ const getTeamMembers = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
-    res.status(200).json(team.members);
+    // Get all users who belong to this team
+    const members = await User.find({ team: team._id }).select('name email amountRaised donationId bio');
+    res.status(200).json(members);
 });
 
 // @desc    Get Team Leaderboard
@@ -133,7 +135,7 @@ const updateTeam = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
-    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+    const user = await User.findById(req.auth.payload.sub);
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -159,7 +161,7 @@ const deleteTeam = asyncHandler(async (req, res) => {
         throw new Error('Team not found');
     }
 
-    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+    const user = await User.findById(req.auth.payload.sub);
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -188,7 +190,7 @@ const removeMember = asyncHandler(async (req, res) => {
         throw new Error('Team or User not found');
     }
 
-    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+    const user = await User.findById(req.auth.payload.sub);
 
     if (!user || !team.captain.equals(user._id)) {
         res.status(401);
@@ -203,11 +205,8 @@ const removeMember = asyncHandler(async (req, res) => {
     //remove their contribution to the team's totalRaised
     if (memberToRemove.amountRaised) {
         team.totalRaised -= memberToRemove.amountRaised;
+        await team.save();
     }
-
-    // Remove from team members array
-    team.members = team.members.filter(memberId => !memberId.equals(memberToRemove._id));
-    await team.save();
 
     // Remove team reference from user
     memberToRemove.team = null;
@@ -220,7 +219,7 @@ const removeMember = asyncHandler(async (req, res) => {
 // @route   POST /api/teams/leave
 // @access  Private
 const leaveTeam = asyncHandler(async (req, res) => {
-    const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+    const user = await User.findById(req.auth.payload.sub);
 
     if (!user || !user.team) {
         res.status(400);
@@ -234,12 +233,11 @@ const leaveTeam = asyncHandler(async (req, res) => {
         throw new Error('Captain cannot leave. Delete the team or transfer captaincy.');
     }
 
-    // Remove user's contribution to team's totalRaised and from team members array
+    // Remove user's contribution to team's totalRaised
     if (user.amountRaised) {
         team.totalRaised -= user.amountRaised;
+        await team.save();
     }
-    team.members = team.members.filter(memberId => !memberId.equals(user._id));
-    await team.save();
 
     // Remove team reference from user
     user.team = null;

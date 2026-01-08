@@ -2,11 +2,10 @@ const mongoose = require('mongoose');
 const { nanoid } = require('nanoid');
 
 const userSchema = new mongoose.Schema({
-  firebaseUid: { 
+  _id: { 
     type: String, 
-    required: true, 
-    unique: true 
-  }, // The unique ID from Firebase
+    required: true 
+  }, // firebaseUid serves as the primary key
   email: { type: String, required: false },
   name: String,
   
@@ -19,11 +18,12 @@ const userSchema = new mongoose.Schema({
   // User Bio / Story
   bio: { type: String, default: '' },
 
-  // Relationship: Which team do they belong to?
+  // Foreign key: Which team does this user belong to?
   team: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Team', 
-    default: null 
+    default: null,
+    index: true // Index for fast team member lookups
   }
 }, { timestamps: true });
 

@@ -5,7 +5,7 @@ const Registration = require('../models/Registration');
 
 // Helper to find DB user from Firebase Token
 const getCurrentUser = async (firebaseUid) => {
-  return await User.findOne({ firebaseUid });
+  return await User.findById(firebaseUid);
 };
 
 // @desc    Create a Team
@@ -21,7 +21,7 @@ const createTeam = asyncHandler(async (req, res) => {
   }
 
   // Guard: Must pay before creating a team
-  const registration = await Registration.findOne({ user: user._id });
+  const registration = await Registration.findById(user.firebaseUid);
   if (!registration || !registration.hasPaid) {
     res.status(403);
     throw new Error('You must pay your registration fee before creating a team.');
@@ -79,11 +79,10 @@ const joinTeam = asyncHandler(async (req, res) => {
   }
 
   // Add user to team
-  team.members.push(user._id);
   if (user.amountRaised) {
     team.totalRaised += user.amountRaised;
+    await team.save();
   }
-  await team.save();
 
   // Link user to team
   user.team = team._id;

@@ -24,7 +24,7 @@ const syncUser = asyncHandler(async (req, res) => {
   
   // "Upsert": Update if exists, Create if new
   let user = await User.findOneAndUpdate(
-    { firebaseUid },
+    { _id: firebaseUid },
     { 
       $set: { email, name }, // Always update email/name in case they changed
       $setOnInsert: { amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
@@ -32,11 +32,11 @@ const syncUser = asyncHandler(async (req, res) => {
     { new: true, upsert: true } // Return the new doc, create if missing
   );
 
-  console.log('🟢 [SYNC SUCCESS] User saved:', { _id: user._id, firebaseUid: user.firebaseUid, donationId: user.donationId });
+  console.log('🟢 [SYNC SUCCESS] User saved:', { _id: user._id, donationId: user.donationId });
 
   // Ensure Registration record exists for this user
   const registration = await Registration.findOneAndUpdate(
-    { user: user._id },
+    { _id: firebaseUid },
     {},
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
@@ -51,7 +51,7 @@ const syncUser = asyncHandler(async (req, res) => {
 // @access  Private
 const getMyStatus = asyncHandler(async (req, res) => {
   // Get user and populate their team info (only needed fields)
-  const user = await User.findOne({ firebaseUid: req.auth.payload.sub }).populate('team', 'name captain members');
+  const user = await User.findById(req.auth.payload.sub).populate('team', 'name captain members');
   
   if (!user) {
     res.status(404);
@@ -59,7 +59,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
   }
 
   // Get registration status
-  const registration = await Registration.findOne({ user: user._id });
+  const registration = await Registration.findById(user._id);
 
   res.json({
     _id: user._id,
@@ -72,7 +72,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
-      memberCount: user.team.members.length
+      memberCount: await User.countDocuments({ team: user.team._id })
     } : null
   });
 });
@@ -81,7 +81,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/me
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findOne({ firebaseUid: req.auth.payload.sub });
+  const user = await User.findById(req.auth.payload.sub);
 
   if (!user) {
     res.status(404);
@@ -150,7 +150,7 @@ const getSelectedUser = asyncHandler(async (req, res) => {
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
-      memberCount: user.team.members.length
+      memberCount: await User.countDocuments({ team: user.team._id })
     } : null
   });
 });

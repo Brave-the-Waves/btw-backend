@@ -64,14 +64,14 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
   const { amount = 25, currency = 'CAD' } = req.body; // Default $25 CAD registration fee
 
   // Find the user
-  const user = await User.findOne({ firebaseUid });
+  const user = await User.findById(firebaseUid);
   if (!user) {
     res.status(404);
     throw new Error('User not found');
   }
 
   // Check if already paid
-  const registration = await Registration.findOne({ user: user._id });
+  const registration = await Registration.findById(firebaseUid);
   if (registration?.hasPaid) {
     res.status(400);
     throw new Error('Registration fee already paid');
@@ -99,7 +99,6 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
     metadata: {
       type: 'registration',
       userId: user._id.toString(),
-      firebaseUid: user.firebaseUid,
     },
     customer_email: user.email,
   });
@@ -149,7 +148,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
 
       if (user) {
         const registration = await Registration.findOneAndUpdate(
-          { user: user._id },
+          { _id: user._id },
           {
             hasPaid: true,
             stripeCustomerId: session.customer,

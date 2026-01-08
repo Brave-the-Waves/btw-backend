@@ -1,12 +1,10 @@
 const mongoose = require('mongoose');
 
 const registrationSchema = new mongoose.Schema({
-  user: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true,
-    unique: true 
-  },
+  _id: { 
+    type: String, 
+    required: true 
+  }, // firebaseUid serves as the primary key
   hasPaid: { type: Boolean, default: false },
   stripeCustomerId: { type: String },
   transactionId: { type: String }, // For the payment transaction

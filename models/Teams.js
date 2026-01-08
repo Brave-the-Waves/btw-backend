@@ -16,12 +16,6 @@ const teamSchema = new mongoose.Schema({
     required: true 
   },
 
-  // The Roster
-  members: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
-  }],
-
   division: {
     type: String,
     enum: ['Community', 'Corporate', 'Survivor', 'Student'], //subject to change in the future, maybe there are no such things such as divisions
