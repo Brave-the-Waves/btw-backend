@@ -28,16 +28,16 @@ const getTeamById = asyncHandler(async (req, res) => {
     }
 
     // Check if the requester is the captain
-    let isCaptain = false;
-    // req.auth is populated by optionalCheckJwt if a valid token is present
+    let isCaptain = false;    
     if (req.auth && req.auth.payload && req.auth.payload.sub) {
         const user = await User.findById(req.auth.payload.sub);
         // Check if user exists and is the captain
-        if (user && team.captain && team.captain.equals(user._id)) {
+        if (user && team.captain && team.captain === user._id) {
             isCaptain = true;
         }
+    } else {
+        console.log('❌ req.auth not populated - no auth token or middleware not applied');
     }
-
     // If not captain, hide the invite code
     if (!isCaptain) {
         team = team.toObject(); // Convert Mongoose doc to plain object
