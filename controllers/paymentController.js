@@ -10,7 +10,7 @@ const Donation = require('../models/Donation');
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
   console.log('Creating checkout session with body:', req.body);
-  const { amount, currency, donationId } = req.body;
+  console.log('Donation details:', { amount, currency, donationId, message, isAnonymous });
 
   // Basic validation
   if (!amount || !currency) {
@@ -21,6 +21,8 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
   // Optional: Verify paddler exists if provided via public donationId
   let metadata = {};
   metadata.type = 'donation';
+  metadata.message = (message || '').substring(0, 500); // Limit to 500 chars
+  metadata.isAnonymous = isAnonymous || false
   if (donationId) {
     const paddler = await User.findOne({ donationId });
     if (paddler) {
@@ -120,9 +122,6 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  console.log('Webhook secret configured:', endpointSecret ? 'YES' : 'NO');
-  console.log('Stripe signature present:', sig ? 'YES' : 'NO');
-
   let event;
 
   try { 
@@ -205,7 +204,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         stripeCustomerId: session.customer, 
         stripeCheckoutSessionId: session.id,
         amount: amountPaid,
-        currency: session.currency,
+        currency: session.currency.toUpperCase(),
         status: 'completed',
         donorName: session.customer_details?.name || 'Anonymous',
         donorEmail: session.customer_details?.email || 'Anonymous',
