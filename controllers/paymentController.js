@@ -3,6 +3,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const User = require('../models/Users');
 const Team = require('../models/Teams');
 const Registration = require('../models/Registration');
+const Donation = require('../models/Donation');
 
 // @desc    Create Stripe Checkout Session
 // @route   POST /api/create-checkout-session
@@ -45,6 +46,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
       },
     ],
     mode: 'payment',
+    customer_creation: 'always', // Always create a Stripe Customer to track donors
     success_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/cancel`,
     metadata: metadata, // Store donationId here so we can retrieve it in the webhook later
@@ -94,6 +96,7 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
       },
     ],
     mode: 'payment',
+    customer_creation: 'always', // Always create a Stripe Customer
     success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=success`,
     cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=cancel`,
     metadata: {
@@ -135,9 +138,6 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   // Handle the checkout.session.completed event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-
-    console.log('Payment succeeded for session:', session.id);
-
     const paymentType = session.metadata?.type;
     const amountPaid = (session.amount_total || 0) / 100; // Convert cents to dollars
 
@@ -158,9 +158,6 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           },
           { new: true, upsert: true }
         );
-
-        console.log(`✅ Registration payment completed for ${user.email} - Amount: $${amountPaid}`);
-        console.log(`Registration record updated:`, registration._id);
       } else {
         console.error(`❌ Registration payment: User not found with ID ${userId}`);
       }
@@ -168,6 +165,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
     // Handle DONATION payment
     else {
       const donationId = session.metadata?.donationId;
+      let targetUserId = null;
 
       if (!donationId) {
         console.log('No donationId in metadata - donation not attributed to a specific user');
@@ -176,6 +174,8 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         const user = await User.findOne({ donationId });
 
         if (user) {
+          targetUserId = user._id; // Save for donation record
+          
           user.amountRaised += amountPaid;
           await user.save();
 
@@ -196,6 +196,24 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           console.log(`No user found with donationId=${donationId}`);
         }
       }
+      console.log('------------------------------');
+      console.log(`✅ Donation payment completed - Amount: $${amountPaid}`);
+      console.log('Creating donation record in database...');
+      // Record the donation in the Donations collection
+      const donationRecord = await Donation.create({
+        stripePaymentIntentId: session.payment_intent,
+        stripeCustomerId: session.customer, 
+        stripeCheckoutSessionId: session.id,
+        amount: amountPaid,
+        currency: session.currency,
+        status: 'completed',
+        donorName: session.customer_details?.name || 'Anonymous',
+        donorEmail: session.customer_details?.email || 'Anonymous',
+        targetUser: targetUserId,
+        message: session.metadata?.message || '',
+        isAnonymous: session.metadata?.isAnonymous === 'true' || false
+      });
+      console.log('Donation record created:', { id: donationRecord._id, amount: donationRecord.amount});
     }
   }
 

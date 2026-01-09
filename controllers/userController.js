@@ -51,7 +51,7 @@ const syncUser = asyncHandler(async (req, res) => {
 // @access  Private
 const getMyStatus = asyncHandler(async (req, res) => {
   // Get user and populate their team info (only needed fields)
-  const user = await User.findById(req.auth.payload.sub).populate('team', 'name captain members');
+  const user = await User.findById(req.auth.payload.sub).populate('team', 'name captain');
   
   if (!user) {
     res.status(404);

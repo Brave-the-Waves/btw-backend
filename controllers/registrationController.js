@@ -21,7 +21,7 @@ const createTeam = asyncHandler(async (req, res) => {
   }
 
   // Guard: Must pay before creating a team
-  const registration = await Registration.findById(user.firebaseUid);
+  const registration = await Registration.findById(user._id);
   if (!registration || !registration.hasPaid) {
     res.status(403);
     throw new Error('You must pay your registration fee before creating a team.');
@@ -40,7 +40,6 @@ const createTeam = asyncHandler(async (req, res) => {
     description: req.body.description || '',
     donationGoal: req.body.donationGoal || 0,
     captain: user._id,
-    members: [user._id] // Captain is the first member
   });
 
   // Update the User to link to this team

@@ -11,7 +11,7 @@ const teamSchema = new mongoose.Schema({
   },
 
   captain: { 
-    type: mongoose.Schema.Types.ObjectId, 
+    type: String, // firebaseUid, since User._id is now String
     ref: 'User', 
     required: true 
   },

@@ -29,7 +29,6 @@ const getTeamById = asyncHandler(async (req, res) => {
 
     // Check if the requester is the captain
     let isCaptain = false;
-    console.log("req:", req);
     // req.auth is populated by optionalCheckJwt if a valid token is present
     if (req.auth && req.auth.payload && req.auth.payload.sub) {
         const user = await User.findById(req.auth.payload.sub);
@@ -52,10 +51,7 @@ const getTeamById = asyncHandler(async (req, res) => {
 // @route   GET /api/public/teams/:name/members
 // @access  Public
 const getTeamMembers = asyncHandler(async (req, res) => {
-    const team = await Team.findOne({ name: req.params.name }).populate({
-        path: 'members',
-        select: 'name amountRaised'
-    });
+    const team = await Team.findOne({ name: req.params.name })
 
     if (!team) {
         res.status(404);
@@ -71,38 +67,22 @@ const getTeamMembers = asyncHandler(async (req, res) => {
 // @route   GET /api/public/teams/leaderboard
 // @access  Public
 const getTeamLeaderboard = asyncHandler(async (req, res) => {
-    // Aggregate to sum up amountRaised from members
-    // Note: This assumes we want to calculate it on the fly.
-    // If performance becomes an issue, store totalRaised on Team model.
-    const teams = await Team.aggregate([
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'members',
-                foreignField: '_id',
-                as: 'memberDetails'
-            }
-        },
-        {
-            $addFields: {
-                totalRaised: { $sum: '$memberDetails.amountRaised' },
-                memberCount: { $size: '$members' }
-            }
-        },
-        { $sort: { totalRaised: -1 } },
-        { $limit: 10 },
-        {
-            $project: {
-                name: 1,
-                division: 1,
-                totalRaised: 1,
-                memberCount: 1,
-                description: 1
-            }
-        }
-    ]);
+    // Use the pre-computed totalRaised field from Team model
+    // (Updated via webhooks when donations come in)
+    const teams = await Team.find({})
+        .select('name division totalRaised description')
+        .sort({ totalRaised: -1 })
+        .limit(10);
 
-    res.json(teams);
+    // Add member count for each team
+    const teamsWithCount = await Promise.all(
+        teams.map(async (team) => ({
+            ...team.toObject(),
+            memberCount: await User.countDocuments({ team: team._id })
+        }))
+    );
+
+    res.json(teamsWithCount);
 });
 
 // @desc    Search Teams
@@ -116,7 +96,7 @@ const searchTeams = asyncHandler(async (req, res) => {
         }
     } : {};
 
-    const teams = await Team.find({ ...keyword }).select('name division description members');
+    const teams = await Team.find({ ...keyword }).select('name division description totalRaised');
     res.json(teams);
 });
 
