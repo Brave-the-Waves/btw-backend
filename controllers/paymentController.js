@@ -10,6 +10,7 @@ const Donation = require('../models/Donation');
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
   console.log('Creating checkout session with body:', req.body);
+  const { amount, currency, donationId, message, isAnonymous } = req.body;
   console.log('Donation details:', { amount, currency, donationId, message, isAnonymous });
 
   // Basic validation

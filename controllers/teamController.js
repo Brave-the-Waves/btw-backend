@@ -29,15 +29,19 @@ const getTeamById = asyncHandler(async (req, res) => {
 
     // Check if the requester is the captain
     let isCaptain = false;    
-    if (req.auth && req.auth.payload && req.auth.payload.sub) {
-        const user = await User.findById(req.auth.payload.sub);
-        // Check if user exists and is the captain
-        if (user && team.captain && team.captain === user._id) {
-            isCaptain = true;
+    if (req.auth?.payload?.sub) {
+        try {
+            const user = await User.findById(req.auth.payload.sub);
+            // Check if user exists and is the captain
+            if (user && team.captain === user._id) {
+                isCaptain = true;
+            }
+        } catch (err) {
+            // Silently fail - user can still view team without captain privileges
+            console.log('Note: Could not verify captain status');
         }
-    } else {
-        console.log('❌ req.auth not populated - no auth token or middleware not applied');
     }
+    
     // If not captain, hide the invite code
     if (!isCaptain) {
         team = team.toObject(); // Convert Mongoose doc to plain object
@@ -72,7 +76,7 @@ const getTeamLeaderboard = asyncHandler(async (req, res) => {
     const teams = await Team.find({})
         .select('name division totalRaised description')
         .sort({ totalRaised: -1 })
-        .limit(10);
+        .limit(5);
 
     // Add member count for each team
     const teamsWithCount = await Promise.all(
@@ -208,7 +212,7 @@ const leaveTeam = asyncHandler(async (req, res) => {
 
     const team = await Team.findById(user.team);
 
-    if (team.captain.equals(user._id)) {
+    if (team.captain === user._id) {
         res.status(400);
         throw new Error('Captain cannot leave. Delete the team or transfer captaincy.');
     }

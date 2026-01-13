@@ -21,7 +21,7 @@ app.use(cors());
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 250, // Limit each IP to 250 requests per windowsMs
+  max: 1000, // Increased for development
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
@@ -43,6 +43,7 @@ app.use('/api/registrations', require('./routes/registration'));
 app.use('/api/public/teams', require('./routes/teams'));
 app.use('/api/teams', require('./routes/teamManagement'));
 app.use('/api', require('./routes/payment'));
+app.use('/api/donations', require('./routes/donation'));
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;
