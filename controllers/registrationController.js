@@ -90,8 +90,28 @@ const joinTeam = asyncHandler(async (req, res) => {
   res.json({ success: true, teamName: team.name });
 });
 
+// @desc    Check registration payment status
+// @route   GET /api/registrations/:id/status
+// @access  Private
+const checkPaymentStatus = asyncHandler(async (req, res) => {
+  const user = await getCurrentUser(req.auth.payload.sub);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found in database. Did you sync?');
+  }
+  
+  const registration = await Registration.findById(user._id);
+  if (!registration || !registration.hasPaid) {
+    return res.json({ isRegistered: false });
+  }
+
+  res.json({ isRegistered: true });
+});
+
 
 module.exports = {
   createTeam,
-  joinTeam
+  joinTeam,
+  checkPaymentStatus,
 };
