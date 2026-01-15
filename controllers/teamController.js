@@ -121,7 +121,7 @@ const updateTeam = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.auth.payload.sub);
 
-    if (!user || !team.captain.equals(user._id)) {
+    if (!user || team.captain != user._id) {
         res.status(401);
         throw new Error('Not authorized as team captain');
     }
