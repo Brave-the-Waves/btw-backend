@@ -2,3 +2,7 @@
 .env
 requests.http
 firebase-debug.log
+terraform/terraform.tfvars
+
+*.tfstate
+*.tfstate.backup
