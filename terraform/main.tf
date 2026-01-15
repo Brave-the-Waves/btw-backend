@@ -112,13 +112,13 @@ data "google_project" "project" {}
 
 resource "google_secret_manager_secret_iam_member" "secret_access" {
   # Create an IAM member for each secret
-  for_each = toset([
-    google_secret_manager_secret.connection_string.id,
-    google_secret_manager_secret.firebase_private_key.id,
-    google_secret_manager_secret.firebase_client_email.id,
-    google_secret_manager_secret.stripe_secret_key.id,
-    google_secret_manager_secret.stripe_webhook_secret.id
-  ])
+  for_each = {
+    "connection_string"     = google_secret_manager_secret.connection_string.id
+    "firebase_private_key"  = google_secret_manager_secret.firebase_private_key.id
+    "firebase_client_email" = google_secret_manager_secret.firebase_client_email.id
+    "stripe_secret_key"     = google_secret_manager_secret.stripe_secret_key.id
+    "stripe_webhook_secret" = google_secret_manager_secret.stripe_webhook_secret.id
+  }
 
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"
