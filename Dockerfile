@@ -1,8 +1,11 @@
 # Use official Node.js image (lightweight)
-FROM node:18-alpine
+FROM node:24.13.0-alpine
 
 # Set working directory
 WORKDIR /app
+
+# Upgrade npm to latest version to fix node-tar vulnerability (CVE-2026-23745)
+RUN npm install -g npm@latest
 
 # Copy package files first (better caching)
 COPY package*.json ./
