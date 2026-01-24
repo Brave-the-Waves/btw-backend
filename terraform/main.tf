@@ -145,6 +145,10 @@ resource "google_cloud_run_service" "backend" {
 
         # Environment Variables (Non-Sensitive)
         env {
+          name  = "CLIENT_URL"
+          value = "https://bravethewaves.org"
+        }
+        env {
           name  = "NODE_ENV"
           value = "production"
         }
