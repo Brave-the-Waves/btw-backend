@@ -61,20 +61,30 @@ const getMyStatus = asyncHandler(async (req, res) => {
   // Get registration status
   const registration = await Registration.findById(user._id);
 
-  res.json({
+  const baseResponse = {
     _id: user._id,
     name: user.name,
     email: user.email,
+    role: user.role,
     hasPaid: registration?.hasPaid || false,
-    amountRaised: user.amountRaised,
-    donationId: user.donationId,
-    bio: user.bio,
-    team: user.team ? {
-      name: user.team.name,
-      captain: user.team.captain,
-      memberCount: await User.countDocuments({ team: user.team._id })
-    } : null
-  });
+  };
+
+  if (user.role === 'paddler') {
+    res.json({
+      ...baseResponse,
+      amountRaised: user.amountRaised,
+      donationId: user.donationId,
+      bio: user.bio,
+      team: user.team ? {
+        name: user.team.name,
+        captain: user.team.captain,
+        memberCount: await User.countDocuments({ team: user.team._id })
+      } : null
+    });
+  } else {
+    // Regular user sees limited info
+    res.json(baseResponse);
+  }
 });
 
 // @desc    Update User Profile
@@ -87,6 +97,10 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('User not found');
   }
+  
+  // Only paddlers should be updating bios generally, but maybe regular users want to set it up before upgrading?
+  // Use case: User registers, updates profile, then pays?
+  // For now, allow updates but be aware.
   user.bio = req.body.bio || user.bio;
   // Allow name update if needed, but usually synced from Auth0
   if (req.body.name) user.name = req.body.name;
@@ -102,10 +116,10 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 });
 
 // @desc    Get Leaderboard (Top Participants)
-// @route   GET /api/users/leaderboard
+// @route   GET /api/participants/leaderboard
 // @access  Public
 const getUserLeaderboard = asyncHandler(async (req, res) => {
-  const users = await User.find({})
+  const users = await User.find({ role : 'paddler' })
     .sort({ amountRaised: -1 })
     .limit(5)
     .select('name amountRaised bio team')
@@ -114,10 +128,10 @@ const getUserLeaderboard = asyncHandler(async (req, res) => {
   res.json(users);
 });
 
-// @desc    Search Users
-// @route   GET /api/users/search
+// @desc    Search Participants
+// @route   GET /api/participants/search
 // @access  Public
-const searchUsers = asyncHandler(async (req, res) => {
+const searchParticipants = asyncHandler(async (req, res) => {
   const keyword = req.query.q ? {
     name: {
       $regex: req.query.q,
@@ -125,20 +139,21 @@ const searchUsers = asyncHandler(async (req, res) => {
     }
   } : {};
 
-  const users = await User.find({ ...keyword }).select('name bio amountRaised team').populate('team', 'name');
+  // Only search paddlers
+  const users = await User.find({ ...keyword, role: 'paddler' }).select('name bio amountRaised team').populate('team', 'name');
   res.json(users);
 });
 
-// @desc    Get My Status (Dashboard Info)
-// @route   GET /api/users/:id
+// @desc    Get Selected Participant
+// @route   GET /api/participants/:id
 // @access  Public
-const getSelectedUser = asyncHandler(async (req, res) => {
+const getSelectedParticipant = asyncHandler(async (req, res) => {
   // Get user and populate their team info (only needed fields)
-  const user = await User.findById(req.params.id).populate('team', 'name captain members');
+  const user = await User.findOne({ _id: req.params.id, role: 'paddler' }).populate('team', 'name captain members');
   
   if (!user) {
     res.status(404);
-    throw new Error('User not found');
+    throw new Error('Participant not found');
   }
 
   res.json({
@@ -155,21 +170,22 @@ const getSelectedUser = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Get All Users
-// @route   GET /api/users/
+// @desc    Get All Participants
+// @route   GET /api/participants/
 // @access  Public
-const getAllUsers = asyncHandler(async (req, res) => {
+const getAllParticipants = asyncHandler(async (req, res) => {
   // Populate only team name and captain for list view
-  const users = await User.find({}).select('name amountRaised team donationId').populate('team', 'name captain');
+  const users = await User.find({ role: 'paddler' }).select('name amountRaised team donationId').populate('team', 'name captain');
+  console.log('Fetched all participants, count:', users.length);
   res.json(users);
 });
 
 module.exports = {
   syncUser,
   getMyStatus,
-  getSelectedUser,
+  getSelectedParticipant,
   updateUserProfile,
   getUserLeaderboard,
-  searchUsers,
-  getAllUsers
+  searchParticipants,
+  getAllParticipants
 };

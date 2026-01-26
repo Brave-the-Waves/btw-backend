@@ -162,7 +162,7 @@ resource "google_cloud_run_service" "backend" {
         }
         # Add Stripe Publishable Key here as it's not a secret
         env {
-            name  = "STRIPE_PUBLISHABLE_KEY"
+            name  = "STRIPE_PROD_PUBLISHABLE_KEY"
             value = var.stripe_publishable_key
         }
 
@@ -205,7 +205,7 @@ resource "google_cloud_run_service" "backend" {
           }
         }
         env {
-            name = "STRIPE_WEBHOOK_SECRET"
+            name = "STRIPE_PROD_WEBHOOK_SECRET"
             value_from {
                 secret_key_ref {
                     name = google_secret_manager_secret.stripe_webhook_secret.secret_id

@@ -43,8 +43,48 @@ const getTeamDonations = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    Get donations made BY a user
+// @route   GET /api/donations/made/:userId
+// @access  Private
+const getDonationsMadeByUser = asyncHandler(async (req, res) => {
+  const userId = req.params.userId;
+
+  // Security check: Only allow users to view their own donation history
+  // req.auth is populated by checkJwt middleware
+  if (req.auth.payload.sub !== userId) {
+    res.status(403);
+    throw new Error('Unauthorized: You can only view your own donations');
+  }
+
+  // Get user to find email
+  const user = await User.findById(userId);
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  if (!user.email) {
+      // If user has no email, they probably haven't made email-linked donations or it's a temp account
+      return res.status(200).json({ success: true, donations: [] });
+  }
+
+  // Find donations matched by email (case-insensitive)
+  const donations = await Donation.find({ 
+    donorEmail: { $regex: new RegExp(`^${user.email}$`, 'i') } 
+  })
+    .sort({ createdAt: -1 })
+    .populate('targetUser', 'name') // Show who they donated to
+    .select('amount currency status targetUser donorName createdAt isAnonymous message');
+  console.log(`Donations made by user ${user.name} (${user.email}):`, donations);
+  res.status(200).json({
+    success: true,
+    donations: donations
+  });
+});
+
 module.exports = {
   getUserDonations,
-  getTeamDonations
+  getTeamDonations,
+  getDonationsMadeByUser
 };
 

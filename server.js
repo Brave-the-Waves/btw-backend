@@ -39,6 +39,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/users', require('./routes/users'));
+app.use('/api/participants', require('./routes/participants'));
 app.use('/api/registrations', require('./routes/registration'));
 app.use('/api/public/teams', require('./routes/teams'));
 app.use('/api/teams', require('./routes/teamManagement'));

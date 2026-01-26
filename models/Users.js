@@ -9,11 +9,26 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: false },
   name: String,
   
+  // Amount donated by this user (outbound donations)
+  amountDonated: { type: Number, default: 0 },
+
+  // Role: 'user' (default) or 'paddler'
+  // When 'role' becomes 'paddler', the fields below become relevant.
+  role: { 
+    type: String, 
+    enum: ['user', 'paddler'], 
+    default: 'user' 
+  },
+
+  // --- Paddler specific fields (only relevant if role === 'paddler') ---
+
   // Amount raised by this user (donations attributed to them)
   amountRaised: { type: Number, default: 0 },
 
   // Public donation identifier (short, random) for linking donations
-  donationId: { type: String, unique: true, default: () => nanoid(8) },
+  // Note: We cannot enforce uniqueness or default here easily if not all users have it.
+  // We will generate this ONLY when upgrading to paddler.
+  donationId: { type: String, sparse: true, unique: true },
 
   // User Bio / Story
   bio: { type: String, default: '' },
@@ -23,7 +38,7 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Team', 
     default: null,
-    index: true // Index for fast team member lookups
+    index: true 
   }
 }, { timestamps: true });
 

@@ -9,9 +9,9 @@ const Donation = require('../models/Donation');
 // @route   POST /api/create-checkout-session
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
-  console.log('Creating checkout session with body:', req.body);
   const { amount, currency, donationId, message, isAnonymous } = req.body;
-  console.log('Donation details:', { amount, currency, donationId, message, isAnonymous });
+  const email = req.auth?.payload?.email;
+  console.log('Donation details:', { amount, currency, donationId, message, isAnonymous, email });
 
   // Basic validation
   if (!amount || !currency) {
@@ -50,8 +50,9 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     ],
     mode: 'payment',
     customer_creation: 'always', // Always create a Stripe Customer to track donors
-    success_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173/btw-frontend'}/cancel`,
+    customer_email: email, // Pre-populate email if provided
+    success_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/cancel`,
     metadata: metadata, // Store donationId here so we can retrieve it in the webhook later
   });
 
@@ -66,6 +67,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
 // @access  Private (requires authentication)
 const createRegistrationCheckout = asyncHandler(async (req, res) => {
   const firebaseUid = req.auth.payload.sub;
+  console.log('Creating registration checkout session for user:', firebaseUid);
   const { amount = 25, currency = 'CAD' } = req.body; // Default $25 CAD registration fee
 
   // Find the user
@@ -100,8 +102,8 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
     ],
     mode: 'payment',
     customer_creation: 'always', // Always create a Stripe Customer
-    success_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=success`,
-    cancel_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/btw-frontend/registration=cancel`,
+    success_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/registration=success`,
+    cancel_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/registration=cancel`,
     metadata: {
       type: 'registration',
       userId: user._id.toString(),
@@ -121,7 +123,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   console.log('🔔 Webhook received!');
   
   const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const endpointSecret = process.env.NODE_ENV === 'production' ? process.env.STRIPE_PROD_WEBHOOK_SECRET : process.env.STRIPE_TEST_WEBHOOK_SECRET;
 
   let event;
 
@@ -196,6 +198,27 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           console.log(`No user found with donationId=${donationId}`);
         }
       }
+
+      // Update the DONOR's total donated amount if they are a registered user matches the email used
+      const donorEmail = session.customer_details?.email;
+      if (donorEmail) {
+        // Find user by email (case-insensitive search safer for email)
+        const donorUser = await User.findOne({ 
+          email: { $regex: new RegExp(`^${donorEmail}$`, 'i') } 
+        });
+        
+        if (donorUser) {
+           // Initialize if undefined/null (handles legacy records)
+           if (donorUser.amountDonated === undefined || donorUser.amountDonated === null) {
+              donorUser.amountDonated = 0;
+           }
+           
+           donorUser.amountDonated += amountPaid;
+           await donorUser.save();
+           console.log(`Updated donor ${donorUser.name} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
+        }
+      }
+
       console.log('------------------------------');
       console.log(`✅ Donation payment completed - Amount: $${amountPaid}`);
       console.log('Creating donation record in database...');
