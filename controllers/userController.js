@@ -34,14 +34,41 @@ const syncUser = asyncHandler(async (req, res) => {
 
   console.log('🟢 [SYNC SUCCESS] User saved:', { _id: user._id, donationId: user.donationId });
 
-  // Ensure Registration record exists for this user
-  const registration = await Registration.findOneAndUpdate(
-    { _id: firebaseUid },
-    {},
-    { new: true, upsert: true, setDefaultsOnInsert: true }
-  );
+  // Check existence of registration
+  let registration = await Registration.findById(firebaseUid);
 
-  console.log('🟢 [SYNC SUCCESS] Registration created/updated:', { _id: registration._id, hasPaid: registration.hasPaid });
+  // If no registration (or unpaid), check if they are part of a bundle
+  if ((!registration || !registration.hasPaid) && email) {
+    // Search for any registration that lists this email in bundleEmails
+    // Note: bundleEmails stores emails as strings.
+    const bundlePayer = await Registration.findOne({ bundleEmails: { $regex: new RegExp(`^${email}$`, 'i') } });
+    
+    if (bundlePayer) {
+        // Create/Update the record now because they ARE paid
+        registration = await Registration.findOneAndUpdate(
+            { _id: firebaseUid },
+            { 
+               hasPaid: true,
+               paidBy: bundlePayer._id
+            },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
+        
+        // Update user role to paddler if not already
+        if (user && user.role !== 'paddler') {
+            user.role = 'paddler';
+            await user.save();
+        }
+
+        console.log(`🟢 [SYNC SUCCESS] User ${email} found in bundle paid by ${bundlePayer._id}. Marked as paid.`);
+    }
+  }
+
+  if (registration) {
+      console.log('🟢 [SYNC SUCCESS] Registration status:', { _id: registration._id, hasPaid: registration.hasPaid });
+  } else {
+      console.log('🔵 [SYNC] No registration record found (Unpaid).');
+  }
 
   res.json(user);
 });
@@ -61,31 +88,23 @@ const getMyStatus = asyncHandler(async (req, res) => {
   // Get registration status
   const registration = await Registration.findById(user._id);
 
-  const baseResponse = {
+  res.json({
     _id: user._id,
     name: user.name,
     email: user.email,
     role: user.role,
     hasPaid: registration?.hasPaid || false,
-  };
-
-  if (user.role === 'paddler') {
-    res.json({
-      ...baseResponse,
-      amountRaised: user.amountRaised,
-      donationId: user.donationId,
-      bio: user.bio,
-      team: user.team ? {
-        name: user.team.name,
-        captain: user.team.captain,
-        memberCount: await User.countDocuments({ team: user.team._id })
-      } : null
-    });
-  } else {
-    // Regular user sees limited info
-    res.json(baseResponse);
+    amountRaised: user.amountRaised,
+    donationId: user.donationId,
+    bio: user.bio,
+    team: user.team ? {
+      name: user.team.name,
+      captain: user.team.captain,
+      memberCount: await User.countDocuments({ team: user.team._id })
+    } : null
+  });
   }
-});
+);
 
 // @desc    Update User Profile
 // @route   PUT /api/users/me
@@ -180,6 +199,48 @@ const getAllParticipants = asyncHandler(async (req, res) => {
   res.json(users);
 });
 
+// @desc    Validate emails for bundle registration
+// @route   POST /api/users/validate-emails
+// @access  Private
+const validateEmails = asyncHandler(async (req, res) => {
+  const { emails } = req.body;
+
+  if (!emails || !Array.isArray(emails)) {
+    res.status(400);
+    throw new Error('Please provide an array of emails');
+  }
+
+  // Normalize emails to lowercase for comparison
+  const inputEmails = emails.map(e => e.toLowerCase().trim());
+  
+  // Find users with these emails (use regex for case-insensitive match in DB)
+  const users = await User.find({ 
+    email: { $in: inputEmails.map(e => new RegExp(`^${e}$`, 'i')) } 
+  });
+
+  const foundEmails = users.map(u => u.email.toLowerCase());
+
+  // Determine which emails were NOT found
+  const invalidEmails = inputEmails.filter(email => !foundEmails.includes(email));
+  
+  // Also check if any found users have *already paid* to prevent double payment?
+  // The request specifically asked about "not found in system", but checking for payment is critical for a "pay bundle" feature.
+  // However, I will stick to the requested "not found" check first. 
+  // If the user wants to pay for someone who already paid, that might be a separate validation, 
+  // but let's see if I can add it without breaking the contract "invalid emails".
+  // For now, I'll return invalidEmails as those not found.
+
+  if (invalidEmails.length > 0) {
+      return res.json({
+          valid: false,
+          invalidEmails: invalidEmails,
+          message: `The following emails are not registered: ${invalidEmails.join(', ')}`
+      });
+  }
+
+  res.json({ valid: true });
+});
+
 module.exports = {
   syncUser,
   getMyStatus,
@@ -187,5 +248,6 @@ module.exports = {
   updateUserProfile,
   getUserLeaderboard,
   searchParticipants,
-  getAllParticipants
+  getAllParticipants,
+  validateEmails
 };

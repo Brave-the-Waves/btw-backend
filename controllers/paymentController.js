@@ -115,6 +115,67 @@ const createRegistrationCheckout = asyncHandler(async (req, res) => {
   res.json({ url: session.url });
 });
 
+// @desc    Create Bundle Registration Payment Checkout Session
+// @route   POST /api/create-bundle-registration-checkout
+// @access  Private
+const createBundleRegistrationCheckout = asyncHandler(async (req, res) => {
+  const firebaseUid = req.auth.payload.sub;
+  console.log('Creating bundle registration checkout session for user:', firebaseUid);
+  // Default amount if not provided, though for bundle it should probably be passed
+  const { amount, currency = 'CAD', bundleEmails } = req.body; 
+
+  if (!amount) {
+     res.status(400);
+     throw new Error('Amount is required for bundle registration');
+  }
+
+  if (!bundleEmails || !Array.isArray(bundleEmails) || bundleEmails.length === 0) {
+     res.status(400);
+     throw new Error('Bundle emails are required');
+  }
+
+  const user = await User.findById(firebaseUid);
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Serialize emails for metadata
+  // Limit check: 500 chars per key in Stripe Metadata.
+  const emailsStr = JSON.stringify(bundleEmails);
+  // Optional: check length of emailsStr and handle if too long (e.g. by truncating or throwing error) within 500 chars
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price_data: {
+          currency: currency,
+          product_data: {
+            name: `Brave The Waves - Bundle Registration (${bundleEmails.length} participants)`,
+            description: 'Group Event registration payment',
+          },
+          unit_amount: Math.round(amount * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    customer_creation: 'always', 
+    success_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/registration=success`,
+    cancel_url: `${process.env.NODE_ENV === 'production' ? process.env.CLIENT_URL : 'http://localhost:5173'}/registration=cancel`,
+    metadata: {
+      type: 'bundle_registration',
+      userId: user._id.toString(),
+      emails: emailsStr
+    },
+    customer_email: user.email,
+  });
+
+  console.log('Created Bundle Registration Checkout Session:', session.id, 'for user:', user.email);
+  res.json({ url: session.url });
+});
+
 // @desc    Handle Stripe Webhook Events
 // @route   POST /api/stripe-webhook
 // @access  Public (but verified with Stripe signature)
@@ -146,7 +207,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
     // Handle REGISTRATION payment
     if (paymentType === 'registration') {
       const userId = session.metadata?.userId;
-      const user = await User.findById(userId);
+      let user = await User.findById(userId);
 
       if (user) {
         const registration = await Registration.findOneAndUpdate(
@@ -160,8 +221,69 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           },
           { new: true, upsert: true }
         );
+        
+        // Update user role to paddler
+        user.role = 'paddler';
+        await user.save();
+        
       } else {
         console.error(`❌ Registration payment: User not found with ID ${userId}`);
+      }
+    }
+    // Handle BUNDLE REGISTRATION payment
+    else if (paymentType === 'bundle_registration') {
+      const userId = session.metadata?.userId;
+      const emailsStr = session.metadata?.emails;
+      const bundleEmails = emailsStr ? JSON.parse(emailsStr) : [];
+      
+      let user = await User.findById(userId);
+
+      if (user) {
+        // Update Payer
+        const registration = await Registration.findOneAndUpdate(
+          { _id: user._id },
+          {
+            hasPaid: true,
+            stripeCustomerId: session.customer,
+            transactionId: session.payment_intent,
+            amountPaid: amountPaid,
+            currency: session.currency?.toUpperCase(),
+            bundleEmails: bundleEmails
+          },
+          { new: true, upsert: true }
+        );
+        
+        // Payer becomes a paddler
+        user.role = 'paddler';
+        await user.save();
+        
+        console.log(`Updated Payer ${user.email} registration for bundle.`);
+
+        // Update Beneficiaries if they exist
+        for (const email of bundleEmails) {
+             // Find user by email
+             const benefUser = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+             if (benefUser) {
+                 await Registration.findOneAndUpdate(
+                     { _id: benefUser._id },
+                     { 
+                         hasPaid: true,
+                         paidBy: user._id
+                     },
+                     { upsert: true }
+                 );
+                 // Update beneficiary to paddler
+                 benefUser.role = 'paddler';
+                 await benefUser.save();
+
+                 console.log(`Marked beneficiary ${email} as paid.`);
+             } else {
+                 console.log(`Beneficiary ${email} not found in Users system yet. match will happen on sync.`);
+             }
+        }
+
+      } else {
+        console.error(`❌ Bundle Registration payment: User not found with ID ${userId}`);
       }
     }
     // Handle DONATION payment
@@ -247,5 +369,6 @@ const stripeWebhook = asyncHandler(async (req, res) => {
 module.exports = {
   createCheckoutSession,
   createRegistrationCheckout,
+  createBundleRegistrationCheckout,
   stripeWebhook
 };

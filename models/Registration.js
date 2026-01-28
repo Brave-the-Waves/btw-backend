@@ -10,6 +10,12 @@ const registrationSchema = new mongoose.Schema({
   transactionId: { type: String }, // For the payment transaction
   amountPaid: { type: Number, default: 0 },
   currency: { type: String, default: 'CAD' },
+  
+  // For bundle registration: list of emails paid for by this user
+  bundleEmails: { type: [String], default: [], index: true },
+  
+  // If this user was paid for by another user (part of a bundle)
+  paidBy: { type: String, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Registration', registrationSchema);

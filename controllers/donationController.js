@@ -75,7 +75,6 @@ const getDonationsMadeByUser = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .populate('targetUser', 'name') // Show who they donated to
     .select('amount currency status targetUser donorName createdAt isAnonymous message');
-  console.log(`Donations made by user ${user.name} (${user.email}):`, donations);
   res.status(200).json({
     success: true,
     donations: donations
