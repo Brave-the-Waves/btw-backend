@@ -45,6 +45,7 @@ app.use('/api/public/teams', require('./routes/teams'));
 app.use('/api/teams', require('./routes/teamManagement'));
 app.use('/api', require('./routes/payment'));
 app.use('/api/donations', require('./routes/donation'));
+app.use('/api/waivers', require('./routes/waivers'));
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;

@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
     required: true 
   }, // firebaseUid serves as the primary key
   email: { type: String, required: false },
-  name: String,
+  firstname: { type: String, default: '' },
+  lastname: { type: String, default: '' },
   
   // Amount donated by this user (outbound donations)
   amountDonated: { type: Number, default: 0 },
@@ -30,6 +31,9 @@ const userSchema = new mongoose.Schema({
   // We will generate this ONLY when upgrading to paddler.
   donationId: { type: String, sparse: true, unique: true },
 
+  // Profile picture URL (stored in Firebase Storage)
+  picture: { type: String, default: '' },
+
   // User Bio / Story
   bio: { type: String, default: '' },
 
@@ -41,5 +45,10 @@ const userSchema = new mongoose.Schema({
     index: true 
   }
 }, { timestamps: true });
+
+// Virtual getter for full name concatenation
+userSchema.virtual('name').get(function() {
+  return `${this.firstname} ${this.lastname}`.trim();
+});
 
 module.exports = mongoose.model('User', userSchema);

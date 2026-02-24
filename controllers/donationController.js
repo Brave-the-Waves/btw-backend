@@ -73,7 +73,7 @@ const getDonationsMadeByUser = asyncHandler(async (req, res) => {
     donorEmail: { $regex: new RegExp(`^${user.email}$`, 'i') } 
   })
     .sort({ createdAt: -1 })
-    .populate('targetUser', 'name') // Show who they donated to
+    .populate('targetUser', 'firstname lastname') // Show who they donated to
     .select('amount currency status targetUser donorName createdAt isAnonymous message');
   res.status(200).json({
     success: true,

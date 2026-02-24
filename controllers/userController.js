@@ -22,12 +22,18 @@ const syncUser = asyncHandler(async (req, res) => {
 
   console.log('🔵 [SYNC] Syncing user:', { firebaseUid, email, name });
   
+  // Parse name into firstname and lastname
+  const nameParts = (name || '').trim().split(/\s+/);
+  const firstname = nameParts[0] || '';
+  const lastname = nameParts.slice(1).join(' ') || '';
+  const photoURL = req.auth.payload.picture
+  
   // "Upsert": Update if exists, Create if new
   let user = await User.findOneAndUpdate(
     { _id: firebaseUid },
     { 
-      $set: { email, name }, // Always update email/name in case they changed
-      $setOnInsert: { amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
+      $set: { email, firstname, lastname }, // Always update email/name in case they changed
+      $setOnInsert: { picture: photoURL, amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
     },
     { new: true, upsert: true } // Return the new doc, create if missing
   );
@@ -90,13 +96,16 @@ const getMyStatus = asyncHandler(async (req, res) => {
 
   res.json({
     _id: user._id,
-    name: user.name,
+    name: user.name, // virtual property (firstname lastname)
+    firstname: user.firstname,
+    lastname: user.lastname,
     email: user.email,
     role: user.role,
     hasPaid: registration?.hasPaid || false,
     amountRaised: user.amountRaised,
     donationId: user.donationId,
     bio: user.bio,
+    picture: user.picture,
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
@@ -120,18 +129,26 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   // Only paddlers should be updating bios generally, but maybe regular users want to set it up before upgrading?
   // Use case: User registers, updates profile, then pays?
   // For now, allow updates but be aware.
-  user.bio = req.body.bio || user.bio;
-  // Allow name update if needed, but usually synced from Auth0
-  if (req.body.name) user.name = req.body.name;
+  if (req.body.picture) {
+    user.picture = req.body.picture;
+    const updatedUser = await user.save();
+    return res.json({ picture: updatedUser.picture });
+  } else {
+    user.bio = req.body.bio || user.bio;
+    // Allow name update if needed, but usually synced from Auth0
+    if (req.body.firstname) user.firstname = req.body.firstname;
+    if (req.body.lastname) user.lastname = req.body.lastname;
 
-  const updatedUser = await user.save();
+    const updatedUser = await user.save();
 
-  res.json({
-    _id: updatedUser._id,
-    name: updatedUser.name,
-    email: updatedUser.email,
-    bio: updatedUser.bio
-  });
+    res.json({
+      _id: updatedUser._id,
+      firstname: updatedUser.firstname,
+      lastname: updatedUser.lastname,
+      email: updatedUser.email,
+      bio: updatedUser.bio
+    });
+  }
 });
 
 // @desc    Get Leaderboard (Top Participants)

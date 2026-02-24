@@ -4,6 +4,7 @@ const User = require('../models/Users');
 const Team = require('../models/Teams');
 const Registration = require('../models/Registration');
 const Donation = require('../models/Donation');
+const Waiver = require('../models/Waiver');
 
 // @desc    Create Stripe Checkout Session
 // @route   POST /api/create-checkout-session
@@ -28,7 +29,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     const paddler = await User.findOne({ donationId });
     if (paddler) {
       metadata.donationId = donationId;
-      metadata.paddlerName = paddler.name;
+      metadata.paddlerName = `${paddler.firstname} ${paddler.lastname}`.trim();
     }
   }
 
@@ -225,6 +226,14 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         // Update user role to paddler
         user.role = 'paddler';
         await user.save();
+
+        // Create a Waiver record for this user (completed = false until they sign)
+        await Waiver.findOneAndUpdate(
+          { userId: user._id },
+          { userId: user._id },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        console.log(`✅ Waiver record created for user ${user._id}`);
         
       } else {
         console.error(`❌ Registration payment: User not found with ID ${userId}`);
@@ -256,7 +265,15 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         // Payer becomes a paddler
         user.role = 'paddler';
         await user.save();
-        
+
+        // Create a Waiver record for the payer
+        await Waiver.findOneAndUpdate(
+          { userId: user._id },
+          { userId: user._id },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+        console.log(`✅ Waiver record created for payer ${user._id}`);
+
         console.log(`Updated Payer ${user.email} registration for bundle.`);
 
         // Update Beneficiaries if they exist
@@ -275,6 +292,14 @@ const stripeWebhook = asyncHandler(async (req, res) => {
                  // Update beneficiary to paddler
                  benefUser.role = 'paddler';
                  await benefUser.save();
+
+                 // Create a Waiver record for this beneficiary
+                 await Waiver.findOneAndUpdate(
+                   { userId: benefUser._id },
+                   { userId: benefUser._id },
+                   { upsert: true, new: true, setDefaultsOnInsert: true }
+                 );
+                 console.log(`✅ Waiver record created for beneficiary ${email}`);
 
                  console.log(`Marked beneficiary ${email} as paid.`);
              } else {
@@ -303,7 +328,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           user.amountRaised += amountPaid;
           await user.save();
 
-          console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
+          console.log(`Updated ${user.firstname} ${user.lastname}'s amountRaised to $${user.amountRaised}`);
 
           // Update the team's totalRaised if user is on a team
           if (user.team) {
@@ -337,7 +362,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
            
            donorUser.amountDonated += amountPaid;
            await donorUser.save();
-           console.log(`Updated donor ${donorUser.name} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
+           console.log(`Updated donor ${donorUser.firstname} ${donorUser.lastname} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
         }
       }
 
