@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Team = require('../models/Teams');
 const User = require('../models/Users');
 const Registration = require('../models/Registration');
+const RegistrationCode = require('../models/RegistrationCode');
 
 // Helper to find DB user from Firebase Token
 const getCurrentUser = async (firebaseUid) => {
@@ -109,9 +110,75 @@ const checkPaymentStatus = asyncHandler(async (req, res) => {
   res.json({ isRegistered: true });
 });
 
+// @desc    Confirm selection via registration code and register user
+// @route   POST /api/registrations/confirm-selection
+// @access  Private
+const confirmSelection = asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code || !code.trim()) {
+    res.status(400);
+    throw new Error('Registration code is required');
+  }
+
+  const user = await getCurrentUser(req.auth.payload.sub);
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found in database. Did you sync?');
+  }
+
+  // If a registration record already exists, the user is considered registered
+  const existingRegistration = await Registration.findById(user._id);
+  if (existingRegistration) {
+    res.status(400);
+    throw new Error('User is already registered');
+  }
+
+  // Atomically decrement uses if available (case-insensitive by storing codes as uppercase)
+  const normalized = code.trim().toUpperCase();
+  const regCode = await RegistrationCode.findOneAndUpdate(
+    { code: normalized, uses: { $gt: 0 } },
+    { $inc: { uses: -1 } },
+    { new: true }
+  );
+
+  if (!regCode) {
+    res.status(400);
+    throw new Error('Invalid or exhausted registration code');
+  }
+
+  // Create the Registration entry (user wasn't registered before)
+  const registration = await Registration.create({ _id: user._id, hasPaid: true });
+
+  // If user already belongs to a team, just return success
+  if (user.team) {
+    return res.json({ success: true, teamName: regCode.teamName });
+  }
+
+  // Find or create the team referenced by the code
+  let team = await Team.findOne({ name: regCode.teamName });
+  if (!team) {
+    team = await Team.create({ name: regCode.teamName, captain: user._id });
+    user.team = team._id;
+    await user.save();
+    return res.json({ success: true, teamName: team.name });
+  }
+
+  // Add user to existing team
+  if (user.amountRaised) {
+    team.totalRaised = (team.totalRaised || 0) + user.amountRaised;
+    await team.save();
+  }
+
+  user.team = team._id;
+  await user.save();
+
+  res.json({ success: true, teamName: team.name });
+});
+
 
 module.exports = {
   createTeam,
   joinTeam,
   checkPaymentStatus,
+  confirmSelection,
 };
