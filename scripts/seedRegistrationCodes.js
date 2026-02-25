@@ -8,6 +8,7 @@ const seedCodes = async () => {
 
   const codes = [
     { code: 'cK7vX3tR9qL2mZ8P', uses: 5, teamName: 'test' },
+    { code: 'L17v23tRSqX2m28x', uses: 5, teamName: 'test2' },
     { code: 'X7fQ9Lm2Rk8Vz4Tp', uses: 30, teamName: 'DBZ' },
     { code: 'nD4xK8qZ2Wm7Yt6R', uses: 30, teamName: 'DOD' },
     { code: 'P9vT3kL8xQ2rZ7Mn', uses: 30, teamName: 'CDBC' },

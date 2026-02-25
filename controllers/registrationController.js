@@ -126,9 +126,9 @@ const confirmSelection = asyncHandler(async (req, res) => {
     throw new Error('User not found in database. Did you sync?');
   }
 
-  // If a registration record already exists, the user is considered registered
   const existingRegistration = await Registration.findById(user._id);
-  if (existingRegistration) {
+  // If user already registered and has paid, reject
+  if (existingRegistration && existingRegistration.hasPaid) {
     res.status(400);
     throw new Error('User is already registered');
   }
@@ -146,8 +146,15 @@ const confirmSelection = asyncHandler(async (req, res) => {
     throw new Error('Invalid or exhausted registration code');
   }
 
-  // Create the Registration entry (user wasn't registered before)
-  const registration = await Registration.create({ _id: user._id, hasPaid: true });
+  // If a registration exists but hasn't paid, mark as paid; otherwise create a new registration
+  let registration;
+  if (existingRegistration) {
+    existingRegistration.hasPaid = true;
+    await existingRegistration.save();
+    registration = existingRegistration;
+  } else {
+    registration = await Registration.create({ _id: user._id, hasPaid: true });
+  }
 
   // If user already belongs to a team, just return success
   if (user.team) {
