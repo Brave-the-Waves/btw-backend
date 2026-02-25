@@ -7,9 +7,8 @@ const registrationCodeSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Normalize codes to uppercase on save
-registrationCodeSchema.pre('save', function(next) {
+registrationCodeSchema.pre('save', function() {
   if (this.code) this.code = this.code.toUpperCase();
-  next();
 });
 
 module.exports = mongoose.model('RegistrationCode', registrationCodeSchema);
