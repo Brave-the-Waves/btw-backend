@@ -7,10 +7,11 @@ const seedCodes = async () => {
   await connectDB();
 
   const codes = [
-    { code: 'ALPHA2026', uses: 10, teamName: 'Alpha Team' },
-    { code: 'BRAVE2026', uses: 10, teamName: 'Brave Team' },
-    { code: 'WAVES2026', uses: 10, teamName: 'Waves Team' },
-    { code: 'TEAM2026', uses: 10, teamName: 'Team 2026' }
+    { code: 'cK7vX3tR9qL2mZ8P', uses: 5, teamName: 'test' },
+    { code: 'X7fQ9Lm2Rk8Vz4Tp', uses: 30, teamName: 'DBZ' },
+    { code: 'nD4xK8qZ2Wm7Yt6R', uses: 30, teamName: 'DOD' },
+    { code: 'P9vT3kL8xQ2rZ7Mn', uses: 30, teamName: 'CDBC' },
+    { code: 'Z8mQ2rT7xL4pVk9W', uses: 30, teamName: 'CsBUM' }
   ];
 
   try {
