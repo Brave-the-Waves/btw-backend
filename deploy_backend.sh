@@ -7,7 +7,7 @@ PROJECT_ID="brave-the-waves-backend"
 REGION="northamerica-northeast1"
 REPO_NAME="btw-backend-repo"
 IMAGE_NAME="server"
-TAG="latest"
+TAG=$(git rev-parse --short HEAD)
 
 echo "🚀 Starting Backend Deployment..."
 
