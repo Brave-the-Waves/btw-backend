@@ -157,7 +157,7 @@ const createBundleRegistrationCheckout = asyncHandler(async (req, res) => {
         price_data: {
           currency: currency,
           product_data: {
-            name: `Brave The Waves - Bundle Registration (${bundleEmails.length} participants)`,
+            name: `Brave The Waves - Bundle Registration (${bundleEmails.length+1} participants)`,
             description: 'Group Event registration payment',
           },
           unit_amount: Math.round(amount * 100),
