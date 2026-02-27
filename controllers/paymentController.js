@@ -10,8 +10,8 @@ const Waiver = require('../models/Waiver');
 // @route   POST /api/create-checkout-session
 // @access  Public
 const createCheckoutSession = asyncHandler(async (req, res) => {
-  const { amount, currency, donationId, message, isAnonymous } = req.body;
-  const email = req.auth?.payload?.email;
+  const { amount, currency, donationId, message, isAnonymous, donorName, fullName, email: bodyEmail, address, phone } = req.body;
+  const email = bodyEmail || req.auth?.payload?.email;
   console.log('Donation details:', { amount, currency, donationId, message, isAnonymous, email });
 
   // Basic validation
@@ -24,7 +24,11 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
   let metadata = {};
   metadata.type = 'donation';
   metadata.message = (message || '').substring(0, 500); // Limit to 500 chars
-  metadata.isAnonymous = isAnonymous || false
+  metadata.isAnonymous = isAnonymous || false;
+  metadata.donorName = (donorName || '').substring(0, 500);
+  metadata.donorFullName = (fullName || '').substring(0, 500);
+  metadata.donorPhone = (phone || '').substring(0, 500);
+  metadata.donorAddress = (address || '').substring(0, 500);
   if (donationId) {
     const paddler = await User.findOne({ donationId });
     if (paddler) {
@@ -377,8 +381,11 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         amount: amountPaid,
         currency: session.currency.toUpperCase(),
         status: 'completed',
-        donorName: session.customer_details?.name || 'Anonymous',
+        donorName: session.metadata?.donorName || session.customer_details?.name || 'Anonymous',
+        donorFullName: session.metadata?.donorFullName || '',
         donorEmail: session.customer_details?.email || 'Anonymous',
+        donorPhone: session.metadata?.donorPhone || '',
+        donorAddress: session.metadata?.donorAddress || '',
         targetUser: targetUserId,
         message: session.metadata?.message || '',
         isAnonymous: session.metadata?.isAnonymous === 'true' || false

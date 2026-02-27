@@ -21,8 +21,11 @@ const donationSchema = new mongoose.Schema({
   },
   
   // Donor information (from Stripe customer data)
-  donorName: String,
+  donorName: String,       // Display name shown on website
+  donorFullName: String,   // Government name for tax receipts
   donorEmail: String,
+  donorPhone: String,      // Phone number for tax receipts
+  donorAddress: String,    // Home address for tax receipts
   
   // Attribution - which paddler gets credit?
   targetUser: { 
