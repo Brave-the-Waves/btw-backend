@@ -147,7 +147,7 @@ const deleteTeam = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.auth.payload.sub);
 
-    if (!user || !team.captain.equals(user._id)) {
+    if (!user || team.captain != user._id) {
         res.status(401);
         throw new Error('Not authorized as team captain');
     }
@@ -176,12 +176,12 @@ const removeMember = asyncHandler(async (req, res) => {
 
     const user = await User.findById(req.auth.payload.sub);
 
-    if (!user || !team.captain.equals(user._id)) {
+    if (!user || team.captain != user._id) {
         res.status(401);
         throw new Error('Not authorized as team captain');
     }
 
-    if (team.captain.equals(memberToRemove._id)) {
+    if (team.captain == memberToRemove._id) {
         res.status(400);
         throw new Error('Captain cannot remove themselves. Delete the team instead.');
     }
@@ -212,7 +212,7 @@ const leaveTeam = asyncHandler(async (req, res) => {
 
     const team = await Team.findById(user.team);
 
-    if (team.captain === user._id) {
+    if (team.captain == user._id) {
         res.status(400);
         throw new Error('Captain cannot leave. Delete the team or transfer captaincy.');
     }
@@ -230,6 +230,55 @@ const leaveTeam = asyncHandler(async (req, res) => {
     res.json({ message: 'Left team successfully' });
 });
 
+// @desc    Transfer Team Captaincy (Captain Only)
+// @route   POST /api/teams/:id/transfer-captain
+// @access  Private
+const transferCaptaincy = asyncHandler(async (req, res) => {
+    const { newCaptainId } = req.body;
+
+    if (!newCaptainId) {
+        res.status(400);
+        throw new Error('New captain ID is required');
+    }
+
+    const team = await Team.findById(req.params.id);
+
+    if (!team) {
+        res.status(404);
+        throw new Error('Team not found');
+    }
+
+    const currentUser = await User.findById(req.auth.payload.sub);
+
+    if (!currentUser || team.captain != currentUser._id) {
+        res.status(401);
+        throw new Error('Not authorized as team captain');
+    }
+
+    const newCaptain = await User.findById(newCaptainId);
+
+    if (!newCaptain) {
+        res.status(404);
+        throw new Error('New captain not found');
+    }
+
+    // Verify new captain is a member of the team
+    if (newCaptain.team.toString() !== team._id.toString()) {
+        res.status(400);
+        throw new Error('New captain must be a member of the team');
+    }
+
+    // Transfer captaincy
+    team.captain = newCaptainId;
+    await team.save();
+
+    res.json({ 
+        success: true,
+        message: `Team captaincy transferred to ${newCaptain.firstname} ${newCaptain.lastname}`,
+        team 
+    });
+});
+
 module.exports = {
     // Public exports
     getAllTeams,
@@ -241,5 +290,6 @@ module.exports = {
     updateTeam,
     deleteTeam,
     removeMember,
-    leaveTeam
+    leaveTeam,
+    transferCaptaincy
 };

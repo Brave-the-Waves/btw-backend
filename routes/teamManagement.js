@@ -4,7 +4,8 @@ const {
     updateTeam,
     deleteTeam,
     removeMember,
-    leaveTeam
+    leaveTeam,
+    transferCaptaincy
 } = require('../controllers/teamController');
 const { checkJwt } = require('../middleware/auth');
 
@@ -15,6 +16,7 @@ router.use(checkJwt);
 router.put('/:id', updateTeam);
 router.delete('/:id', deleteTeam);
 router.delete('/:id/members/:userId', removeMember);
+router.post('/:id/transfer-captain', transferCaptaincy);
 router.post('/leave', leaveTeam);
 
 module.exports = router;
