@@ -12,7 +12,6 @@ const Waiver = require('../models/Waiver');
 const createCheckoutSession = asyncHandler(async (req, res) => {
   const { amount, currency, donationId, message, isAnonymous, donorName, fullName, email: bodyEmail, address, phone } = req.body;
   const email = bodyEmail || req.auth?.payload?.email;
-  console.log('Donation details:', { amount, currency, donationId, message, isAnonymous, email });
 
   // Basic validation
   if (!amount || !currency) {
@@ -321,27 +320,22 @@ const stripeWebhook = asyncHandler(async (req, res) => {
       let targetUserId = null;
 
       if (!donationId) {
-        console.log('No donationId in metadata - donation not attributed to a specific user');
+        console.log('No donationId in metadata - general donation');
       } else {
-        // Update the user's amountRaised by donationId
         const user = await User.findOne({ donationId });
 
         if (user) {
-          targetUserId = user._id; // Save for donation record
+          targetUserId = user._id;
           
-          user.amountRaised += amountPaid;
-          await user.save();
+          await User.updateOne({ _id: user._id }, { $inc: { amountRaised: amountPaid } });
 
-          console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
-
-          // Update the team's totalRaised if user is on a team
           if (user.team) {
-            const team = await Team.findById(user.team);
-
+            const team = await Team.findByIdAndUpdate(
+              user.team,
+              { $inc: { totalRaised: amountPaid } },
+              { new: true }
+            );
             if (team) {
-              team.totalRaised += amountPaid;
-              await team.save();
-
               console.log(`Updated team ${team.name}'s totalRaised to $${team.totalRaised}`);
             }
           }
@@ -350,30 +344,21 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         }
       }
 
-      // Update the DONOR's total donated amount if they are a registered user matches the email used
       const donorEmail = session.customer_details?.email;
       if (donorEmail) {
-        // Find user by email (case-insensitive search safer for email)
+        const escapedEmail = donorEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const donorUser = await User.findOne({ 
-          email: { $regex: new RegExp(`^${donorEmail}$`, 'i') } 
+          email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } 
         });
         
         if (donorUser) {
-           // Initialize if undefined/null (handles legacy records)
-           if (donorUser.amountDonated === undefined || donorUser.amountDonated === null) {
-              donorUser.amountDonated = 0;
-           }
-           
-           donorUser.amountDonated += amountPaid;
-           await donorUser.save();
-           console.log(`Updated donor ${donorUser.name} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
+          await User.updateOne(
+            { _id: donorUser._id },
+            { $inc: { amountDonated: amountPaid } }
+          );
         }
       }
 
-      console.log('------------------------------');
-      console.log(`✅ Donation payment completed - Amount: $${amountPaid}`);
-      console.log('Creating donation record in database...');
-      // Record the donation in the Donations collection
       const donationRecord = await Donation.create({
         stripePaymentIntentId: session.payment_intent,
         stripeCustomerId: session.customer, 
@@ -390,7 +375,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
         message: session.metadata?.message || '',
         isAnonymous: session.metadata?.isAnonymous === 'true' || false
       });
-      console.log('Donation record created:', { id: donationRecord._id, amount: donationRecord.amount});
+      console.log(`✅ Donation record created: $${donationRecord.amount} by ${donationRecord.donorEmail}`);
     }
   }
 

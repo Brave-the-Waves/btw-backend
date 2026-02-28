@@ -15,7 +15,6 @@ const getCurrentUser = async (firebaseUid) => {
 // @access  Private
 const createTeam = asyncHandler(async (req, res) => {
   const user = await getCurrentUser(req.auth.payload.sub);
-  console.log('Creating team for user:', user);
 
   if (!user) {
     res.status(404);

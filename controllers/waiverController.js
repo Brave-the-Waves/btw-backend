@@ -8,9 +8,6 @@ const User = require('../models/Users');
 const getWaiverStatus = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   const requestingUid = req.auth.payload.sub;
-  
-  console.log("user: ", userId)
-  console.log("requesting", requestingUid)
 
   // Users can only check their own waiver status (unless future admin role added)
   if (requestingUid !== userId) {

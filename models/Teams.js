@@ -18,7 +18,11 @@ const teamSchema = new mongoose.Schema({
 
   division: {
     type: String,
+<<<<<<< Updated upstream
     enum: ['Community', 'Sports', 'Corporate'], //subject to change in the future, maybe there are no such things such as divisions
+=======
+    enum: ['Community', 'Corporate', 'Sports'],
+>>>>>>> Stashed changes
     default: 'Community'
   },
 

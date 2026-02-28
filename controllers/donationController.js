@@ -28,9 +28,7 @@ const getUserDonations = asyncHandler(async (req, res) => {
 const getTeamDonations = asyncHandler(async (req, res) => {
     const teamId = req.params.teamId;
     const members = await Users.find({ team: teamId }).select('_id');
-    console.log('Team members:', members); 
     const donations = await Donation.find({ targetUser: { $in: members } }).sort({ createdAt: -1 }).select('targetUser amount message isAnonymous createdAt donorName');
-    console.log('Donations found for team:', donations);
 
     if (!donations) {
         res.status(404);
@@ -69,8 +67,9 @@ const getDonationsMadeByUser = asyncHandler(async (req, res) => {
   }
 
   // Find donations matched by email (case-insensitive)
+  const escapedEmail = user.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const donations = await Donation.find({ 
-    donorEmail: { $regex: new RegExp(`^${user.email}$`, 'i') } 
+    donorEmail: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } 
   })
     .sort({ createdAt: -1 })
     .populate('targetUser', 'name') // Show who they donated to

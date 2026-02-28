@@ -150,7 +150,7 @@ const getUserLeaderboard = asyncHandler(async (req, res) => {
   const users = await User.find({ role : 'paddler' })
     .sort({ amountRaised: -1 })
     .limit(5)
-    .select('name amountRaised bio team')
+    .select('name amountRaised picture bio team')
     .populate('team', 'name');
   
   res.json(users);
@@ -190,6 +190,7 @@ const getSelectedParticipant = asyncHandler(async (req, res) => {
     email: user.email,
     bio: user.bio,
     donationId: user.donationId,
+    picture: user.picture,
     team: user.team ? {
       name: user.team.name,
       captain: user.team.captain,
@@ -203,8 +204,7 @@ const getSelectedParticipant = asyncHandler(async (req, res) => {
 // @access  Public
 const getAllParticipants = asyncHandler(async (req, res) => {
   // Populate only team name and captain for list view
-  const users = await User.find({ role: 'paddler' }).select('name amountRaised team donationId').populate('team', 'name captain');
-  console.log(users)
+  const users = await User.find({ role: 'paddler' }).select('name picture amountRaised team donationId').populate('team', 'name captain');
   console.log('Fetched all participants, count:', users.length);
   res.json(users);
 });
