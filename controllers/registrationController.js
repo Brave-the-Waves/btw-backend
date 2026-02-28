@@ -3,6 +3,7 @@ const Team = require('../models/Teams');
 const User = require('../models/Users');
 const Registration = require('../models/Registration');
 const RegistrationCode = require('../models/RegistrationCode');
+const Waiver = require('../models/Waiver');
 
 // Helper to find DB user from Firebase Token
 const getCurrentUser = async (firebaseUid) => {
@@ -156,15 +157,20 @@ const confirmSelection = asyncHandler(async (req, res) => {
     registration = await Registration.create({ _id: user._id, hasPaid: true });
   }
 
-  // If user already belongs to a team, just return success
-  if (user.team) {
-    return res.json({ success: true, teamName: regCode.teamName });
-  }
+  // Create a Waiver record for this user (completed = false until they sign)
+  await Waiver.findOneAndUpdate(
+    { userId: user._id },
+    { userId: user._id },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  console.log(`✅ Waiver record created for user ${user._id}`);
+
+  user.role = 'paddler';
 
   // Find or create the team referenced by the code
   let team = await Team.findOne({ name: regCode.teamName });
   if (!team) {
-    team = await Team.create({ name: regCode.teamName, captain: user._id });
+    team = await Team.create({ name: regCode.teamName, captain: user._id, division: 'Sports' });
     user.team = team._id;
     await user.save();
     return res.json({ success: true, teamName: team.name });

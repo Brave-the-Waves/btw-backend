@@ -18,7 +18,7 @@ const teamSchema = new mongoose.Schema({
 
   division: {
     type: String,
-    enum: ['Community', 'Student', 'Corporate'], //subject to change in the future, maybe there are no such things such as divisions
+    enum: ['Community', 'Sports', 'Corporate'], //subject to change in the future, maybe there are no such things such as divisions
     default: 'Community'
   },
 
