@@ -33,7 +33,7 @@ const createCheckoutSession = asyncHandler(async (req, res) => {
     const paddler = await User.findOne({ donationId });
     if (paddler) {
       metadata.donationId = donationId;
-      metadata.paddlerName = `${paddler.firstname} ${paddler.lastname}`.trim();
+      metadata.paddlerName = paddler.name || '';
     }
   }
 
@@ -332,7 +332,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
           user.amountRaised += amountPaid;
           await user.save();
 
-          console.log(`Updated ${user.firstname} ${user.lastname}'s amountRaised to $${user.amountRaised}`);
+          console.log(`Updated ${user.name}'s amountRaised to $${user.amountRaised}`);
 
           // Update the team's totalRaised if user is on a team
           if (user.team) {
@@ -366,7 +366,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
            
            donorUser.amountDonated += amountPaid;
            await donorUser.save();
-           console.log(`Updated donor ${donorUser.firstname} ${donorUser.lastname} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
+           console.log(`Updated donor ${donorUser.name} (${donorUser.email}) amountDonated to $${donorUser.amountDonated}`);
         }
       }
 

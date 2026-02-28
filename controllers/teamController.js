@@ -63,7 +63,7 @@ const getTeamMembers = asyncHandler(async (req, res) => {
     }
 
     // Get all users who belong to this team
-    const members = await User.find({ team: team._id }).select('firstname lastname email amountRaised donationId bio');
+    const members = await User.find({ team: team._id }).select('name email amountRaised donationId bio');
     res.status(200).json(members);
 });
 

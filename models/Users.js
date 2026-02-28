@@ -7,8 +7,7 @@ const userSchema = new mongoose.Schema({
     required: true 
   }, // firebaseUid serves as the primary key
   email: { type: String, required: false },
-  firstname: { type: String, default: '' },
-  lastname: { type: String, default: '' },
+  name: { type: String, default: '' },
   
   // Amount donated by this user (outbound donations)
   amountDonated: { type: Number, default: 0 },
@@ -45,10 +44,5 @@ const userSchema = new mongoose.Schema({
     index: true 
   }
 }, { timestamps: true });
-
-// Virtual getter for full name concatenation
-userSchema.virtual('name').get(function() {
-  return `${this.firstname} ${this.lastname}`.trim();
-});
 
 module.exports = mongoose.model('User', userSchema);

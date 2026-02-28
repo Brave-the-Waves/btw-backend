@@ -22,17 +22,13 @@ const syncUser = asyncHandler(async (req, res) => {
 
   console.log('🔵 [SYNC] Syncing user:', { firebaseUid, email, name });
   
-  // Parse name into firstname and lastname
-  const nameParts = (name || '').trim().split(/\s+/);
-  const firstname = nameParts[0] || '';
-  const lastname = nameParts.slice(1).join(' ') || '';
   const photoURL = req.auth.payload.picture
   
   // "Upsert": Update if exists, Create if new
   let user = await User.findOneAndUpdate(
     { _id: firebaseUid },
     { 
-      $set: { email, firstname, lastname }, // Always update email/name in case they changed
+      $set: { email, name }, // Always update email/name in case they changed
       $setOnInsert: { picture: photoURL, amountRaised: 0, donationId: nanoid(8) } // Only set default for new users
     },
     { new: true, upsert: true } // Return the new doc, create if missing
@@ -96,9 +92,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
 
   res.json({
     _id: user._id,
-    name: user.name, // virtual property (firstname lastname)
-    firstname: user.firstname,
-    lastname: user.lastname,
+    name: user.name,
     email: user.email,
     role: user.role,
     hasPaid: registration?.hasPaid || false,
@@ -136,15 +130,13 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   } else {
     user.bio = req.body.bio || user.bio;
     // Allow name update if needed, but usually synced from Auth0
-    if (req.body.firstname) user.firstname = req.body.firstname;
-    if (req.body.lastname) user.lastname = req.body.lastname;
+    if (req.body.name) user.name = req.body.name;
 
     const updatedUser = await user.save();
 
     res.json({
       _id: updatedUser._id,
-      firstname: updatedUser.firstname,
-      lastname: updatedUser.lastname,
+      name: updatedUser.name,
       email: updatedUser.email,
       bio: updatedUser.bio
     });
@@ -212,6 +204,7 @@ const getSelectedParticipant = asyncHandler(async (req, res) => {
 const getAllParticipants = asyncHandler(async (req, res) => {
   // Populate only team name and captain for list view
   const users = await User.find({ role: 'paddler' }).select('name amountRaised team donationId').populate('team', 'name captain');
+  console.log(users)
   console.log('Fetched all participants, count:', users.length);
   res.json(users);
 });
