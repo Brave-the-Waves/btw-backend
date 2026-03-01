@@ -251,6 +251,28 @@ const validateEmails = asyncHandler(async (req, res) => {
   res.json({ valid: true });
 });
 
+// @desc    Delete User Account
+// @route   DELETE /api/users/me
+// @access  Private
+const deleteUser = asyncHandler(async (req, res) => {
+  const userId = req.auth.payload.sub;
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  // Delete the user
+  await User.findByIdAndDelete(userId);
+
+  res.json({ 
+    message: 'User account successfully deleted',
+    _id: userId 
+  });
+});
+
 module.exports = {
   syncUser,
   getMyStatus,
@@ -259,5 +281,6 @@ module.exports = {
   getUserLeaderboard,
   searchParticipants,
   getAllParticipants,
-  validateEmails
+  validateEmails,
+  deleteUser
 };

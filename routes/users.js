@@ -5,7 +5,8 @@ const {
     syncUser, 
     getMyStatus, 
     updateUserProfile,
-    validateEmails
+    validateEmails,
+    deleteUser
 } = require('../controllers/userController');
 
 // POST /api/users/sync
@@ -23,5 +24,9 @@ router.get('/me', checkJwt, getMyStatus);
 // PUT /api/users/me
 // Update current user's profile
 router.put('/me', checkJwt, updateUserProfile);
+
+// DELETE /api/users/me
+// Delete current user's account
+router.delete('/me', checkJwt, deleteUser);
 
 module.exports = router;
