@@ -1,143 +1,227 @@
 # Brave The Waves - Backend API
 
-Welcome to the backend repository for **Brave The Waves**, a charity dragon boat event dedicated to raising awareness and funds for breast cancer research and support.
+REST API backend for **Brave The Waves**, a charity dragon boat event raising awareness and funds for breast cancer research and support.
 
 This event is proudly hosted by:
-*   **WHAM (Women’s Health Awareness Movement)** at McGill University
-*   **University of Montreal Dragon Boat Club**
+- **WHAM (Women's Health Awareness Movement)** at McGill University
+- **University of Montreal Dragon Boat Club**
 
-All proceeds raised through this event and platform are donated to **More Than A Cure (MTAC)** to support their vital work.
+All proceeds are donated to **More Than A Cure (MTAC)**.
 
-## 🚧 Project Status
+## Technologies
 
-**Current Status:** 🟡 In Development
+- **Runtime:** Node.js
+- **Framework:** Express.js v5
+- **Database:** MongoDB with Mongoose
+- **Authentication:** Firebase Admin SDK (JWT verification; emulator mode supported for local dev)
+- **Payments:** Stripe (Checkout Sessions + Webhooks)
+- **Infrastructure:** Docker, Terraform (GCP)
+- **Utilities:** `nanoid`, `express-async-handler`, `express-rate-limit`, `dotenv`
 
-This project is currently a Work In Progress (WIP). The core registration and team management logic is implemented, but we are actively working on:
-*   💳 **Payment Integration:** Secure processing for registration fees and donations.
-*   📊 **Admin Dashboard:** A complete interface for organizers to manage teams, users, and event logistics.
+## Features
 
-## 🛠️ Technologies Used
+### User & Participant Management
+- **Firebase Auth sync:** Creates or updates a user record on every login.
+- **Role system:** Users start with `role: 'user'` and are upgraded to `role: 'paddler'` after paying the registration fee. Paddlers receive a unique `donationId` used for public donation links.
+- **Profile:** Users can update their display name, bio, and profile picture (stored in Firebase Storage).
+- **Participant directory:** Browse all paddlers, view individual profiles, and search by name.
+- **Fundraising leaderboard:** Ranks paddlers by total amount raised.
+- **Account deletion:** Users can delete their own account.
+- **Email validation:** Validate a list of emails before submitting a bundle registration.
 
-This API is built using a robust Node.js stack:
+### Team Management
+- **Team creation:** Paid paddlers can create a team and become its captain.
+- **Join via invite code:** Teams are joined using a unique 6-character code generated with `nanoid`.
+- **Captain controls:** Edit team name/division/description, remove members, disband the team, and transfer captaincy to another member.
+- **Member actions:** Paddlers can leave their current team.
+- **Public team pages:** View team details, roster, and fundraising totals.
+- **Team leaderboard:** Rankings by aggregate amount raised across all team members.
+- **Team search:** Find teams by name.
 
-*   **Runtime:** [Node.js](https://nodejs.org/)
-*   **Framework:** [Express.js](https://expressjs.com/) - Fast, unopinionated, minimalist web framework.
-*   **Database:** [MongoDB](https://www.mongodb.com/) (with [Mongoose](https://mongoosejs.com/)) - For flexible and scalable data modeling.
-*   **Authentication:** [Auth0](https://auth0.com/) - Secure identity management (using `express-oauth2-jwt-bearer`).
-*   **Utilities:**
-    *   `nanoid` for generating unique invite codes.
-    *   `express-async-handler` for cleaner async error handling.
-    *   `dotenv` for environment variable management.
+### Registration & Payments (Stripe)
+- **Individual registration:** Creates a Stripe Checkout Session for the $25 CAD registration fee. On successful payment, the user is upgraded to `paddler`.
+- **Bundle registration:** A single user pays the registration fee for multiple participants at once (validated email list). Each covered participant is upgraded to `paddler`.
+- **Donations:** Public Stripe Checkout Sessions for one-time donations, targeted to a specific paddler via their `donationId` or made as a general event donation.
+- **Stripe Webhook:** Processes `checkout.session.completed` events to confirm payments, create `Donation` records, and update `Registration` and `User` documents.
+- **Donation history:** Query donations received by a paddler, donations attributed to a team, or donations made by a specific user.
+- **Tax receipt fields:** Donors can provide full name, address, and phone number at checkout for tax receipt purposes.
 
-## ✨ Features
+### Waivers
+- **Submit waiver:** Paddlers fill out and digitally sign a liability waiver (signature image uploaded to Firebase Storage).
+- **Minor support:** Guardian name, phone, email, and a separate guardian signature URL are collected when `isMinor` is `true`.
+- **Waiver status check:** Quickly query whether a user has completed their waiver.
 
-### 👤 User Management
-*   **Profile Sync:** Automatically syncs user data from Auth0 upon login.
-*   **Dashboard:** Users can view their personal status, payment status, and team membership.
-*   **Profile Customization:** Users can update their bio and display name.
-*   **Public Profiles:** View detailed profiles of other participants, including their "Why I Paddle" story and fundraising progress.
-*   **User Search:** Find participants by name.
-*   **Leaderboard:** Real-time ranking of top fundraisers.
+### Registration Codes
+- Pre-seeded invite codes (`RegistrationCode`) that grant registration access via `POST /api/registrations/confirm-selection`.
+- Seeding script: `npm run seed:registration-codes`.
 
-### 🏆 Team Management
-*   **Team Creation:** Eligible users (who have paid registration) can create new teams.
-*   **Join via Code:** Secure team joining using unique 6-character invite codes.
-*   **Captain Controls:**
-    *   Edit team details (Name, Division, Description).
-    *   Remove members from the roster.
-    *   Disband the team.
-*   **Member Actions:** Users can leave a team if they joined by mistake.
-*   **Team Rosters:** Publicly viewable lists of all members in a team.
-*   **Team Leaderboard:** Rankings based on the total amount raised by all team members.
-*   **Team Search:** Find teams by name.
+### Infrastructure
+- **Docker:** `Dockerfile` and `docker-compose.yml` for containerised local development and production builds.
+- **Terraform:** GCP infrastructure definitions under `terraform/` (Cloud Run, secrets, networking).
+- **Deploy script:** `deploy_backend.sh` for CI/CD deployments.
 
-## 🔌 API Endpoints
+## API Endpoints
 
-### Public Routes
+### Participants (Public)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/participants` | List all paddlers |
+| `GET` | `/api/participants/leaderboard` | Top paddlers by amount raised |
+| `GET` | `/api/participants/search?q=...` | Search paddlers by name |
+| `GET` | `/api/participants/:id` | Get a paddler's public profile |
+
+### Teams (Public)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/public/teams` | List all teams |
-| `GET` | `/api/public/teams/leaderboard` | Get top teams by fundraising |
+| `GET` | `/api/public/teams/leaderboard` | Top teams by fundraising |
 | `GET` | `/api/public/teams/search?q=...` | Search teams by name |
 | `GET` | `/api/public/teams/:name` | Get team details |
 | `GET` | `/api/public/teams/:name/members` | Get team roster |
-| `GET` | `/api/users/leaderboard` | Get top individual fundraisers |
-| `GET` | `/api/users/search?q=...` | Search users by name |
-| `GET` | `/api/users/:id` | Get specific user profile |
 
-### Protected Routes (Requires Auth Token)
+### Donations (Public)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/users/sync` | Sync Auth0 user to database |
-| `GET` | `/api/users/me` | Get my dashboard info |
-| `PUT` | `/api/users/me` | Update my profile (Bio, Name) |
-| `POST` | `/api/registrations/team` | Create a new team |
-| `POST` | `/api/registrations/join` | Join a team with invite code |
-| `POST` | `/api/public/teams/leave` | Leave current team |
-| `PUT` | `/api/public/teams/:id` | Update team details (Captain only) |
-| `DELETE` | `/api/public/teams/:id` | Disband team (Captain only) |
-| `DELETE` | `/api/public/teams/:id/members/:userId` | Remove member (Captain only) |
+| `GET` | `/api/donations/user/:userId` | Donations received by a paddler |
+| `GET` | `/api/donations/teams/:teamId` | Donations received by a team's members |
 
-## 🚀 Getting Started
+### Users (Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/users/sync` | Sync Firebase user to the database |
+| `GET` | `/api/users/me` | Get current user's status and profile |
+| `PUT` | `/api/users/me` | Update profile (name, bio, picture) |
+| `DELETE` | `/api/users/me` | Delete current user's account |
+| `POST` | `/api/users/validate-emails` | Validate emails for bundle registration |
 
-Follow these steps to set up the backend locally.
+### Registration (Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/registrations/team` | Create a new team (captain path) |
+| `POST` | `/api/registrations/join` | Join a team with an invite code |
+| `GET` | `/api/registrations/:id/status` | Check a registration's payment status |
+| `POST` | `/api/registrations/confirm-selection` | Confirm selection via a registration code |
+
+### Team Management (Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `PUT` | `/api/teams/:id` | Update team details (captain only) |
+| `DELETE` | `/api/teams/:id` | Disband a team (captain only) |
+| `DELETE` | `/api/teams/:id/members/:userId` | Remove a member (captain only) |
+| `POST` | `/api/teams/:id/transfer-captain` | Transfer captaincy (captain only) |
+| `POST` | `/api/teams/leave` | Leave current team |
+
+### Payments (Public / Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/create-checkout-session` | Create a Stripe donation checkout session |
+| `POST` | `/api/create-registration-checkout` | Individual registration checkout (auth required) |
+| `POST` | `/api/create-bundle-registration-checkout` | Bundle registration checkout (auth required) |
+| `POST` | `/api/stripe-webhook` | Stripe webhook handler (raw body, no auth) |
+
+### Donations (Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/donations/made/:userId` | Donations made by the authenticated user |
+
+### Waivers (Protected)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/waivers/:userId/status` | Check if a user's waiver is complete |
+| `GET` | `/api/waivers/:userId` | Fetch full waiver data |
+| `PUT` | `/api/waivers/:userId` | Submit / sign the waiver |
+
+## Getting Started
 
 ### Prerequisites
 
-*   Node.js (v14+ recommended)
-*   npm or yarn
-*   A MongoDB instance (local or Atlas)
-*   An Auth0 account (for authentication setup)
+- Node.js v18+
+- npm
+- A running MongoDB instance (local or Atlas)
+- A Firebase project (for Auth)
+- A Stripe account (for payments)
 
 ### Installation
 
-1.  **Clone the repository:**
+1. **Clone the repository:**
     ```bash
     git clone https://github.com/Brave-the-Waves/btw-backend.git
     cd btw-backend
     ```
 
-2.  **Install dependencies:**
+2. **Install dependencies:**
     ```bash
     npm install
     ```
 
-3.  **Configure Environment Variables:**
-    Create a `.env` file in the root directory and add the following variables:
+3. **Configure environment variables:**
+
+    Create a `.env` file in the root directory:
     ```env
-    PORT=5000
+    PORT=8080
     CONNECTION_STRING=your_mongodb_connection_string
-    AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com/
-    AUTH0_AUDIENCE=https://your-api-identifier
+
+    # Firebase Admin SDK
+    FIREBASE_PROJECT_ID=your_project_id
+    FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+    FIREBASE_CLIENT_EMAIL=firebase-adminsdk@your_project.iam.gserviceaccount.com
+
+    # Set to 'emulator' to skip Firebase credential verification during local development
+    FIREBASE_AUTH_MODE=production
+
+    # Stripe
+    STRIPE_TEST_SECRET_KEY=sk_test_...
+    STRIPE_PROD_SECRET_KEY=sk_live_...
+    STRIPE_WEBHOOK_SECRET=whsec_...
+
+    # Frontend URL (used for Stripe redirect URLs)
+    CLIENT_URL=https://your-frontend-url.com
+
+    NODE_ENV=development
     ```
 
-4.  **Run the server:**
-    *   **Development Mode** (with hot-reload via nodemon):
+4. **Run the server:**
+    - **Development** (with hot-reload via nodemon):
         ```bash
         npm run dev
         ```
-    *   **Production Mode:**
+    - **Production:**
         ```bash
         npm start
         ```
 
-The server should now be running on `http://localhost:5000` (or your specified PORT).
+    The server runs on `http://localhost:8080` by default.
 
-## 📂 Project Structure
+5. **(Optional) Seed registration codes:**
+    ```bash
+    npm run seed:registration-codes
+    ```
+
+### Running with Docker
+
+```bash
+docker-compose up --build
+```
+
+## Project Structure
 
 ```
 btw-backend/
-├── config/             # Database configuration
-├── controllers/        # Route logic and request handling
-├── middleware/         # Custom middleware (Auth, etc.)
-├── models/             # Mongoose data models (Users, Teams)
-├── routes/             # API route definitions
+├── config/             # Database connection
+├── constants.js        # Shared constants (HTTP codes, registration fee)
+├── controllers/        # Request handlers (users, teams, payments, waivers, donations)
+├── helpers/            # One-off scripts (migrations, seeding, tax receipts)
+├── middleware/         # Auth (Firebase JWT) and error handler
+├── models/             # Mongoose schemas (User, Team, Registration, Donation, Waiver, RegistrationCode)
+├── routes/             # Express routers
+├── scripts/            # Seeding scripts
+├── terraform/          # GCP infrastructure (Cloud Run, networking)
+├── docker-compose.yml
+├── Dockerfile
+├── deploy_backend.sh
 └── server.js           # Entry point
 ```
 
-## 🤝 Contributing
-
-This project is built for a charitable cause. If you are a developer from the hosting organizations and want to contribute, please reach out to the project lead or create a Pull Request.
-
 ---
+
 *Built with ❤️ for the fight against breast cancer.*
