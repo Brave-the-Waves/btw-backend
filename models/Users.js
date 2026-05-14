@@ -42,7 +42,15 @@ const userSchema = new mongoose.Schema({
     ref: 'Team', 
     default: null,
     index: true 
+  },
+
+    // --- Admin management ---
+  accountStatus: { 
+    type: String, 
+    enum: ['active', 'disabled'], 
+    default: 'active' 
   }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

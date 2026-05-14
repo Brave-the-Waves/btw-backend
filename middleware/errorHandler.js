@@ -1,10 +1,11 @@
 const constants = require('../constants');
 
 const errorHandler = (err, req, res, next) => {
-    console.log("--- ERROR HANDLER TRIGGERED ---"); // DEBUG LOG
-    // Log the error for debugging
-    console.error(`[Error] ${err.message}`);
-    console.error(err.stack);
+    // Only log error type and message, not full stack
+    console.error(`[Error] ${err.name || 'Unknown'}: ${err.message}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(err.stack);
+    }
 
     // Prefer an existing error status (>=400), otherwise start with 500
     let statusCode = res.statusCode && res.statusCode >= 400 ? res.statusCode : 500;
