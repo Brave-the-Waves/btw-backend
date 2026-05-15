@@ -426,6 +426,16 @@ const setAdminTeamCaptain = asyncHandler(async (req, res) => {
     throw new Error('New captain user not found');
   }
 
+  if (newCaptain.team && newCaptain.team.toString() !== team._id.toString()) {
+    res.status(400);
+    throw new Error('New captain must already belong to this team');
+  }
+
+  if (!newCaptain.team) {
+    newCaptain.team = team._id;
+    await newCaptain.save();
+  }
+
   // Update captain
   team.captain = captainId;
   const updated = await team.save();
