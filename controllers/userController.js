@@ -95,6 +95,7 @@ const getMyStatus = asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
     role: user.role,
+    isAdmin: req.auth?.isAdmin || false,
     hasPaid: registration?.hasPaid || false,
     amountRaised: user.amountRaised,
     donationId: user.donationId,

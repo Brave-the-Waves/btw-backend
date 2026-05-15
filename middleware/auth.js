@@ -1,6 +1,26 @@
 const admin = require('firebase-admin');
 require('dotenv').config();
 
+// Parse ADMIN_EMAILS from env into a Set for O(1) lookup
+// Example: ADMIN_EMAILS=alice@example.com,bob@example.com,charlie@example.com
+const ADMIN_EMAILS = new Set(
+  (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+console.log(`Loaded ${ADMIN_EMAILS.size} admin emails from ADMIN_EMAILS env`);
+
+// Helper: Check if user email qualifies as admin
+// First checks persisted DB flag (if available), falls back to env allowlist
+function isAdminEmail(email) {
+  if (!email) return false;
+  
+  // Primary: check env allowlist
+  return ADMIN_EMAILS.has(email.toLowerCase());
+}
+
 // Read auth mode from env: 'production' (default) or 'emulator'
 const FIREBASE_AUTH_MODE = (process.env.FIREBASE_AUTH_MODE || 'production').toLowerCase();
 
@@ -33,6 +53,28 @@ const decodeJwtWithoutVerification = (token) => {
   return JSON.parse(json);
 };
 
+// Helper: Check if user account is disabled
+// Called after JWT is verified to prevent disabled users from accessing the API
+const checkAccountStatus = async (uid) => {
+  try {
+    const User = require('../models/Users');
+    const user = await User.findById(uid).select('accountStatus');
+    
+    if (!user) {
+      return true; 
+    }
+    
+    if (user.accountStatus === 'disabled') {
+      return false; 
+    }
+    
+    return true;
+  } catch (err) {
+    console.error('Error checking account status:', err.message);
+    return true; 
+  }
+};
+
 const checkJwt = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   
@@ -56,12 +98,20 @@ const checkJwt = async (req, res, next) => {
           name: decoded.name || (decoded.email ? decoded.email.split('@')[0] : undefined),
         }
       };
-      console.warn('Emulator auth: bypassed signature verification. Using token payload as authenticated user:', req.auth.payload.sub);
+      req.auth.isAdmin = isAdminEmail(req.auth.payload.email);
+
+      // Check if account is disabled
+      const isActive = await checkAccountStatus(req.auth.payload.sub);
+      if (!isActive) {
+        console.warn(`Access denied for disabled account: ${req.auth.payload.sub}`);
+        return res.status(401).json({ error: 'Account has been disabled' });
+      }
+
+      console.warn(`[SECURITY] Emulator mode active: bypassed signature verification for user ${req.auth.payload.sub}`);
       return next();
     }
 
     const decodedToken = await admin.auth().verifyIdToken(token);
-    console.log('Decoded Firebase token:', decodedToken);
     // Map to existing req.auth.payload structure for compatibility
     req.auth = {  
       payload: {
@@ -70,6 +120,15 @@ const checkJwt = async (req, res, next) => {
         name: decodedToken.name || decodedToken.email?.split('@')[0],
       }
     };
+
+    req.auth.isAdmin = isAdminEmail(req.auth.payload.email);
+
+    // Check if account is disabled
+    const isActive = await checkAccountStatus(req.auth.payload.sub);
+    if (!isActive) {
+      console.warn(`Access denied for disabled account: ${req.auth.payload.sub}`);
+      return res.status(401).json({ error: 'Account has been disabled' });
+    }
     
     console.log('Firebase token verified for user:', decodedToken.uid);
     next();
@@ -86,7 +145,19 @@ const optionalCheckJwt = async (req, res, next) => {
   await checkJwt(req, res, next);
 };
 
+// Middleware to enforce admin access
+const requireAdmin = (req, res, next) => {
+  if (!req.auth?.isAdmin) {
+    console.warn(`Admin access denied for user: ${req.auth?.payload?.email}`);
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+  console.log(`Admin access granted for user: ${req.auth.payload.email}`);
+  next();
+}
+
 module.exports = { 
   checkJwt,
-  optionalCheckJwt 
+  optionalCheckJwt,
+  requireAdmin,
+  isAdminEmail
 };

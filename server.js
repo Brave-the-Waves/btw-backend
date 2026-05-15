@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet'); 
 const connectDB = require('./config/dbConnection');
 const errorHandler = require('./middleware/errorHandler');
 require('dotenv').config();
@@ -16,7 +17,22 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors());
+// Security headers
+app.use(helmet());
+
+// CORS - Restrict to allowed origins only
+const allowedOrigins = [
+  'http://localhost:5173',  // Local development
+  'https://bravethewaves.org',  // Production
+  process.env.ALLOWED_ORIGINS  // Allow override via .env
+].filter(Boolean);
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Rate Limiting
 const limiter = rateLimit({
@@ -46,6 +62,7 @@ app.use('/api/teams', require('./routes/teamManagement'));
 app.use('/api', require('./routes/payment'));
 app.use('/api/donations', require('./routes/donation'));
 app.use('/api/waivers', require('./routes/waivers'));
+app.use('/api/admin', require('./routes/admin'));
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 8080;
