@@ -249,12 +249,43 @@ const reactivateMember = asyncHandler(async (req, res) => {
 const deleteMember = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const adminId = req.auth?.payload?.sub;
+  const session = await User.startSession();
+  let member;
 
-  const member = await User.findByIdAndDelete(id);
+  try {
+    await session.withTransaction(async () => {
+      member = await User.findById(id).session(session);
 
-  if (!member) {
-    res.status(404);
-    throw new Error('Member not found');
+      if (!member) {
+        res.status(404);
+        throw new Error('Member not found');
+      }
+
+      const memberTotalRaised = Number(member.totalRaised) || 0;
+      const teamUpdate = {
+        $set: { captain: null },
+        $pull: { members: member._id }
+      };
+
+      if (memberTotalRaised > 0) {
+        teamUpdate.$inc = { totalRaised: -memberTotalRaised };
+      }
+
+      await Team.updateMany(
+        {
+          $or: [
+            { captain: member._id },
+            { members: member._id }
+          ]
+        },
+        teamUpdate,
+        { session }
+      );
+
+      await User.deleteOne({ _id: member._id }).session(session);
+    });
+  } finally {
+    await session.endSession();
   }
 
   // Audit log the deletion
