@@ -320,6 +320,7 @@ const getAdminTeams = asyncHandler(async (req, res) => {
 // POST /api/admin/teams
 const createAdminTeam = asyncHandler(async (req, res) => {
   const { name, description, division, captainId } = req.body;
+  let captainUser = null;
 
   // Validate required fields
   if (!name || !name.trim()) {
@@ -337,8 +338,8 @@ const createAdminTeam = asyncHandler(async (req, res) => {
   // If captain provided, verify they exist
   let finalCaptainId = captainId;
   if (captainId) {
-    const captain = await User.findById(captainId);
-    if (!captain) {
+    captainUser = await User.findById(captainId);
+    if (!captainUser) {
       res.status(404);
       throw new Error('Captain user not found');
     }
@@ -357,6 +358,8 @@ const createAdminTeam = asyncHandler(async (req, res) => {
   });
 
   const savedTeam = await team.save();
+  captainUser.team = savedTeam._id;
+  await captainUser.save();
 
   res.json(savedTeam);
 });
