@@ -23,7 +23,7 @@ app.use(helmet());
 // CORS - Restrict to allowed origins only
 const allowedOrigins = [
   'http://localhost:5173',  // Local development
-  'https://bravethewave.org',  // Production
+  'https://bravethewaves.org',  // Production
   process.env.ALLOWED_ORIGINS  // Allow override via .env
 ].filter(Boolean);
 
