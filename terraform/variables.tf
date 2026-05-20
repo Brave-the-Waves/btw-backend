@@ -48,3 +48,13 @@ variable "stripe_publishable_key" {
   description = "Stripe Publishable Key"
   type        = string
 }
+
+variable "admin_emails" {
+  description = "Comma-separated list of admin email addresses"
+  type        = string
+}
+
+variable "allowed_origins" {
+  description = "Comma-separated list of allowed CORS origins"
+  type        = string
+}

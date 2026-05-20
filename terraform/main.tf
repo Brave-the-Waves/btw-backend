@@ -123,7 +123,7 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   secret_id = each.value
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
-  
+
   # Ensure API is enabled first
   depends_on = [google_project_service.secretmanager_api]
 }
@@ -138,15 +138,23 @@ resource "google_cloud_run_service" "backend" {
     spec {
       containers {
         image = var.container_image
-        
+
         ports {
-          container_port = 8080 
+          container_port = 8080
         }
 
         # Environment Variables (Non-Sensitive)
         env {
           name  = "CLIENT_URL"
           value = "https://bravethewaves.org"
+        }
+        env {
+          name  = "ADMIN_EMAILS"
+          value = var.admin_emails
+        }
+        env {
+          name  = "ALLOWED_ORIGINS"
+          value = var.allowed_origins
         }
         env {
           name  = "NODE_ENV"
@@ -162,8 +170,8 @@ resource "google_cloud_run_service" "backend" {
         }
         # Add Stripe Publishable Key here as it's not a secret
         env {
-            name  = "STRIPE_PROD_PUBLISHABLE_KEY"
-            value = var.stripe_publishable_key
+          name  = "STRIPE_PROD_PUBLISHABLE_KEY"
+          value = var.stripe_publishable_key
         }
 
         # Secret Injection
@@ -205,13 +213,13 @@ resource "google_cloud_run_service" "backend" {
           }
         }
         env {
-            name = "STRIPE_PROD_WEBHOOK_SECRET"
-            value_from {
-                secret_key_ref {
-                    name = google_secret_manager_secret.stripe_webhook_secret.secret_id
-                    key = "latest"
-                }
+          name = "STRIPE_PROD_WEBHOOK_SECRET"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.stripe_webhook_secret.secret_id
+              key  = "latest"
             }
+          }
         }
       }
     }

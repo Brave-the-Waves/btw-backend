@@ -21,11 +21,16 @@ app.use((req, res, next) => {
 app.use(helmet());
 
 // CORS - Restrict to allowed origins only
+const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
   'http://localhost:5173',  // Local development
   'https://bravethewaves.org',  // Production
-  process.env.ALLOWED_ORIGINS  // Allow override via .env
-].filter(Boolean);
+  ...envAllowedOrigins
+];
 
 app.use(cors({
   origin: allowedOrigins,
