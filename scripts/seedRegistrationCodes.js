@@ -7,7 +7,7 @@ const seedCodes = async () => {
   await connectDB();
 
   const codes = [
-    { code: 'R8mZ2qL7vX4TpK9n', uses: 30, teamName: 'Brave the Waves Team' },
+    { code: 'R8mZ2qL7vX4TpK9n', uses: 30, teamName: 'Brave the Waves Organizing Team' },
     { code: 'cK7vX3tR9qL2mZ8P', uses: 10, teamName: 'test' },
     { code: 'X7fQ9Lm2Rk8Vz4Tp', uses: 30, teamName: 'DBZ' },
     { code: 'nD4xK8qZ2Wm7Yt6R', uses: 30, teamName: 'DOD' },
@@ -17,18 +17,20 @@ const seedCodes = async () => {
 
   try {
     for (const entry of codes) {
-      const existing = await RegistrationCode.findOne({ code: entry.code.toUpperCase() });
-      if (existing) {
-        console.log(`Skipping existing code: ${entry.code} (uses=${existing.uses})`);
-        continue;
-      }
-
-      const created = await RegistrationCode.create({
-        code: entry.code,
-        uses: entry.uses,
-        teamName: entry.teamName
-      });
-      console.log(`Inserted code: ${created.code} -> team: ${created.teamName} uses: ${created.uses}`);
+      const updated = await RegistrationCode.findOneAndUpdate(
+        { code: entry.code.toUpperCase() },
+        {
+          $set: {
+            uses: entry.uses,
+            teamName: entry.teamName
+          },
+          $setOnInsert: {
+            code: entry.code.toUpperCase()
+          }
+        },
+        { upsert: true, new: true, runValidators: true }
+      );
+      console.log(`Upserted code: ${updated.code} -> team: ${updated.teamName} uses: ${updated.uses}`);
     }
   } catch (err) {
     console.error('Seeding error:', err);
