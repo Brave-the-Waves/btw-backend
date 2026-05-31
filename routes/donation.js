@@ -4,8 +4,13 @@ const { checkJwt } = require('../middleware/auth');
 const { 
     getUserDonations, 
     getTeamDonations, 
-    getDonationsMadeByUser 
+    getDonationsMadeByUser,
+    getTotalDonations
 } = require('../controllers/donationController');
+
+// GET /api/donations/total
+// Get total amount of all donations
+router.get('/total', getTotalDonations);
 
 // GET /api/donations/user/:userId
 // Get donations made to a specific user

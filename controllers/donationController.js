@@ -80,9 +80,26 @@ const getDonationsMadeByUser = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get total amount of all donations
+// @route   GET /api/donations/total
+// @access  Public
+const getTotalDonations = asyncHandler(async (req, res) => {
+  const donationData = await Donation.aggregate([
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+  
+  const totalAmount = donationData[0]?.total || 0;
+
+  res.status(200).json({
+    success: true,
+    total: totalAmount
+  });
+});
+
 module.exports = {
   getUserDonations,
   getTeamDonations,
-  getDonationsMadeByUser
+  getDonationsMadeByUser,
+  getTotalDonations
 };
 
