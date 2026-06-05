@@ -66,7 +66,7 @@ const getAllMembers = asyncHandler(async (req, res) => {
   }
 
   const members = await User.find(filter)
-    .select('_id name email role team accountStatus createdAt')
+    .select('_id name email role team accountStatus createdAt amountRaised')
     .populate('team', 'name')
     .lean();
 
@@ -85,6 +85,7 @@ const getAllMembers = asyncHandler(async (req, res) => {
     name: member.name,
     email: member.email,
     team: member.team,
+    amountRaised: member.amountRaised || 0,
     isRegistered: member.role === 'paddler',
     hasSignedWaiver: waiverMap[member._id] || false,
     accountStatus: member.accountStatus,
