@@ -770,6 +770,81 @@ const getFinanceTaxReceipts = asyncHandler(async (req, res) => {
   res.json(filtered);
 });
 
+// Add a cash donation
+// POST /api/admin/finance/donations/cash
+const addCashDonation = asyncHandler(async (req, res) => {
+  const { amount, donorName, targetUserId, donationId, message } = req.body;
+
+  if (!amount || amount <= 0) {
+    res.status(400);
+    throw new Error('Valid amount is required');
+  }
+
+  let targetUser = null;
+  // Support finding the paddler by either donationId (public frontend identifier) or targetUserId (admin panel identifier)
+  if (donationId) {
+    targetUser = await User.findOne({ donationId });
+    if (!targetUser) {
+      res.status(404);
+      throw new Error(`Paddler not found with donationId ${donationId}`);
+    }
+  } else if (targetUserId) {
+    targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      res.status(404);
+      throw new Error(`Paddler not found with ID ${targetUserId}`);
+    }
+  }
+
+  if (targetUser) {
+    // Increment the paddler's total raised
+    await User.updateOne(
+      { _id: targetUser._id },
+      { $inc: { amountRaised: amount } }
+    );
+
+    // If paddler has a team, increment the team's total raised
+    if (targetUser.team) {
+      await Team.updateOne(
+        { _id: targetUser.team },
+        { $inc: { totalRaised: amount } }
+      );
+    }
+  }
+
+  // Create fake unique Stripe strings to bypass database constraints safely
+  const mockId = `cash_txn_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+  const donation = await Donation.create({
+    stripePaymentIntentId: mockId,
+    stripeCustomerId: `cash_cust_${Date.now()}`,
+    stripeCheckoutSessionId: mockId,
+    amount: amount,
+    currency: 'CAD',
+    status: 'completed',
+    paymentMethod: 'cash',
+    donorName: donorName || 'Anonymous Cash Donor',
+    targetUser: targetUser ? targetUser._id : null,
+    message: message || 'Let\'s go Brave the Waves!',
+    isAnonymous: false
+  });
+
+  if (auditLog) {
+    await auditLog({
+      action: 'ADD_CASH_DONATION',
+      adminId: req.auth?.payload?.sub,
+      targetId: donation._id,
+      details: `Added cash donation of $${amount} from ${donorName || 'Anonymous'} to ${targetUser ? targetUser.name : 'General'}`
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: 'Cash donation recorded successfully',
+    donation
+  });
+});
+
 module.exports = {
   getAdminStats,
   getAllMembers,
@@ -787,5 +862,6 @@ module.exports = {
   manageAdminTeamMembers,
   getFinanceRegistrations,
   getFinanceDonations,
-  getFinanceTaxReceipts
+  getFinanceTaxReceipts,
+  addCashDonation
 };

@@ -19,6 +19,12 @@ const donationSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'failed', 'refunded'],
     default: 'pending'
   },
+  paymentMethod: {
+    type: String,
+    enum: ['stripe', 'cash'],
+    default: 'stripe'
+  },
+
   
   // Donor information (from Stripe customer data)
   donorName: String,       // Display name shown on website

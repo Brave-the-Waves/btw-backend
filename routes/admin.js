@@ -18,7 +18,8 @@ const {
   manageAdminTeamMembers,
   getFinanceRegistrations,
   getFinanceDonations,
-  getFinanceTaxReceipts
+  getFinanceTaxReceipts,
+  addCashDonation
 } = require('../controllers/adminController');
 
 
@@ -54,6 +55,9 @@ router.get('/finance/registrations', getFinanceRegistrations);
 
 // GET /api/admin/finance/donations
 router.get('/finance/donations', getFinanceDonations);
+
+// POST /api/admin/finance/donations/cash
+router.post('/finance/donations/cash', addCashDonation);
 
 // GET /api/admin/finance/tax-receipts
 router.get('/finance/tax-receipts', getFinanceTaxReceipts);

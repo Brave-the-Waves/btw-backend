@@ -14,12 +14,12 @@ echo "🚀 Starting Backend Deployment..."
 # 1. Initialize Terraform (to ensure APIs are enabled and Repo exists)
 cd terraform
 terraform init
-terraform apply -target=google_artifact_registry_repository.repo -auto-approve
+terraform apply -target=google_artifact_registry_repository.repo -auto-approve -var="container_image=dummy"
 cd ..
 
 # 2. Build and Push Docker Image
 echo "📦 Building Docker Image..."
-gcloud auth configure-docker ${REGION}-docker.pkg.dev
+gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
 docker build --platform linux/amd64 -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${TAG} .
 docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${TAG}
 
