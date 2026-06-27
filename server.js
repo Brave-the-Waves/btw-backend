@@ -66,6 +66,7 @@ app.use('/api/public/teams', require('./routes/teams'));
 app.use('/api/teams', require('./routes/teamManagement'));
 app.use('/api', require('./routes/payment'));
 app.use('/api/donations', require('./routes/donation'));
+app.use('/api', require('./routes/fundraising'));
 app.use('/api/waivers', require('./routes/waivers'));
 app.use('/api/admin', require('./routes/admin'));
 app.use(errorHandler);
