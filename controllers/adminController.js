@@ -756,6 +756,7 @@ const getFinanceTaxReceipts = asyncHandler(async (req, res) => {
       amount: Number(don.amount) || 0,
       issuedDate: don.createdAt || null,
       status: normalizeReceiptStatus({ status: 'not issued' }),
+      donorEmail: don.donorEmail || 'N/A',
       donorPhone: don.donorPhone || 'N/A',
       donorAddress: don.donorAddress || 'N/A' 
     };
