@@ -49,6 +49,12 @@ variable "stripe_publishable_key" {
   type        = string
 }
 
+variable "fundraising_export_token" {
+  description = "Fundraising export token for Google Sheets access"
+  type        = string
+  sensitive   = true
+}
+
 variable "admin_emails" {
   description = "Comma-separated list of admin email addresses"
   type        = string

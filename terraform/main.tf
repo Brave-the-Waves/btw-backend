@@ -173,6 +173,10 @@ resource "google_cloud_run_service" "backend" {
           name  = "STRIPE_PROD_PUBLISHABLE_KEY"
           value = var.stripe_publishable_key
         }
+        env {
+          name  = "FUNDRAISING_EXPORT_TOKEN"
+          value = var.fundraising_export_token
+        }
 
         # Secret Injection
         env {
