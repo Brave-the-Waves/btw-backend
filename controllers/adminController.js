@@ -717,11 +717,14 @@ const getFinanceDonations = asyncHandler(async (req, res) => {
     const targetUser = don.targetUser || {};
     return {
       id: don._id || String(index),
+      donationId: don._id || String(index),
       donorName: don.donorName || 'Anonymous',
       amount: Number(don.amount) || 0,
       donationDate: don.createdAt || null,
       paddler: targetUser.name || 'General Fund',
+      targetUserId: targetUser._id || don.targetUser || null,
       message: don.message || 'N/A',
+      paymentMethod: don.paymentMethod || 'stripe',
       status: normalizeDonationStatus(don)
     };
   });
@@ -734,6 +737,140 @@ const getFinanceDonations = asyncHandler(async (req, res) => {
   });
 
   res.json(filtered);
+});
+
+// Update a donation's target paddler
+// PUT /api/admin/finance/donations/:id
+const updateDonationTarget = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { targetUserId } = req.body;
+
+  if (!targetUserId) {
+    res.status(400);
+    throw new Error('targetUserId is required');
+  }
+
+  const donation = await Donation.findById(id);
+  if (!donation) {
+    res.status(404);
+    throw new Error('Donation not found');
+  }
+
+  const nextTargetUser = await User.findById(targetUserId);
+  if (!nextTargetUser) {
+    res.status(404);
+    throw new Error('Target user not found');
+  }
+
+  const amount = Number(donation.amount) || 0;
+  const previousTargetUserId = donation.targetUser ? String(donation.targetUser) : null;
+  const nextTargetUserId = String(nextTargetUser._id);
+
+  if (previousTargetUserId === nextTargetUserId) {
+    res.json({
+      success: true,
+      message: 'Donation target is already set to that user',
+      donation
+    });
+    return;
+  }
+
+  if (previousTargetUserId) {
+    const previousTargetUser = await User.findById(previousTargetUserId);
+    if (previousTargetUser) {
+      await User.updateOne(
+        { _id: previousTargetUser._id },
+        { $inc: { amountRaised: -amount } }
+      );
+
+      if (previousTargetUser.team) {
+        await Team.updateOne(
+          { _id: previousTargetUser.team },
+          { $inc: { totalRaised: -amount } }
+        );
+      }
+    }
+  }
+
+  donation.targetUser = nextTargetUser._id;
+  await donation.save();
+
+  await User.updateOne(
+    { _id: nextTargetUser._id },
+    { $inc: { amountRaised: amount } }
+  );
+
+  if (nextTargetUser.team) {
+    await Team.updateOne(
+      { _id: nextTargetUser.team },
+      { $inc: { totalRaised: amount } }
+    );
+  }
+
+  await auditLog({
+    action: 'UPDATE_DONATION_TARGET',
+    adminId: req.auth?.payload?.sub,
+    targetId: donation._id,
+    details: `Updated donation ${donation._id} target to ${nextTargetUser.name} (${nextTargetUser._id})`
+  });
+
+  res.json({
+    success: true,
+    message: 'Donation target updated successfully',
+    donation
+  });
+});
+
+// Delete a manually entered donation and reverse its attribution totals
+// DELETE /api/admin/finance/donations/:id
+const deleteCashDonation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const donation = await Donation.findById(id);
+
+  if (!donation) {
+    res.status(404);
+    throw new Error('Donation not found');
+  }
+
+  if (donation.paymentMethod !== 'cash') {
+    res.status(400);
+    throw new Error('Only manually entered donations can be deleted');
+  }
+
+  let targetUser = null;
+  const amount = Number(donation.amount) || 0;
+  if (donation.targetUser) {
+    targetUser = await User.findById(donation.targetUser);
+
+    if (targetUser) {
+      await User.updateOne(
+        { _id: targetUser._id },
+        { $inc: { amountRaised: -amount } }
+      );
+
+      if (targetUser.team) {
+        await Team.updateOne(
+          { _id: targetUser.team },
+          { $inc: { totalRaised: -amount } }
+        );
+      }
+    }
+  }
+
+  await Donation.deleteOne({ _id: donation._id });
+
+  await auditLog({
+    action: 'DELETE_CASH_DONATION',
+    adminId: req.auth?.payload?.sub,
+    targetId: donation._id,
+    details: `Deleted manual donation ${donation._id}${targetUser ? ` previously credited to ${targetUser.name} (${targetUser._id})` : ''}`
+  });
+
+  res.json({
+    success: true,
+    message: 'Donation deleted successfully'
+  });
 });
 
 // Get tax receipts (from donations or separate collection)
@@ -865,5 +1002,7 @@ module.exports = {
   getFinanceRegistrations,
   getFinanceDonations,
   getFinanceTaxReceipts,
-  addCashDonation
+  addCashDonation,
+  updateDonationTarget,
+  deleteCashDonation
 };
