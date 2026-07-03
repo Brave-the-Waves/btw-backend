@@ -19,7 +19,9 @@ const {
   getFinanceRegistrations,
   getFinanceDonations,
   getFinanceTaxReceipts,
-  addCashDonation
+  addCashDonation,
+  updateDonationTarget,
+  deleteCashDonation
 } = require('../controllers/adminController');
 
 
@@ -58,6 +60,12 @@ router.get('/finance/donations', getFinanceDonations);
 
 // POST /api/admin/finance/donations/cash
 router.post('/finance/donations/cash', addCashDonation);
+
+// PUT /api/admin/finance/donations/:id
+router.put('/finance/donations/:id', updateDonationTarget);
+
+// DELETE /api/admin/finance/donations/:id
+router.delete('/finance/donations/:id', deleteCashDonation);
 
 // GET /api/admin/finance/tax-receipts
 router.get('/finance/tax-receipts', getFinanceTaxReceipts);
